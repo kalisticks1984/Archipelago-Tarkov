@@ -118,6 +118,32 @@ class LockFleaMarket(DefaultOnToggle):
     display_name = "Lock Flea Market"
 
 
+LOOT_CATEGORY_KEYS = ("barter", "keys", "medication", "provisions", "ammo", "weapons", "weapon_mods", "gear", "info",
+                      "maps", "special_equipment", "money")
+
+
+class Lootsanity(OptionSet):
+    """Item categories whose item types are checks. The first time in a raid you find an item of a type that is
+    still a check, it is an "Archipelago Item" instead (one per type per raid; the rest of that type is normal loot).
+    Extract with it to send the check; you never get the original item. Dying keeps what is in your secure container,
+    as usual. Leave empty to turn lootsanity off.
+
+    Approximate number of item types (checks) per category: barter 229, keys 202, medication 42, provisions 41,
+    ammo 387, weapons 162, weapon_mods 1738, gear 351, info 25, maps 6, special_equipment 11, money 3.
+    Every check adds an item to the multiworld, mostly filler. The optional client plugin shows these items with the
+    Archipelago symbol."""
+    display_name = "Lootsanity"
+    valid_keys = frozenset(LOOT_CATEGORY_KEYS)
+    default = frozenset()
+
+
+class LootsanityProgression(Toggle):
+    """Allow loot checks to hold progression items (yours or other players').
+    Off: loot checks only hold filler. Some item types are very rare spawns and the logic can't know the odds,
+    so with this on a whole multiworld could wait on one unlucky spawn."""
+    display_name = "Lootsanity Progression"
+
+
 class LevelPacing(Choice):
     """How the logic estimates the player level you can reach.
     Logic assumes you need more maps unlocked before high level quests and loyalty levels are expected of you.
@@ -185,6 +211,8 @@ class TarkovOptions(PerGameCommonOptions):
     extracts_per_map: ExtractsPerMap
     kill_milestones: KillMilestones
     boss_checks: BossChecks
+    lootsanity: Lootsanity
+    lootsanity_progression: LootsanityProgression
     lock_flea_market: LockFleaMarket
     level_pacing: LevelPacing
     trap_percentage: TrapPercentage

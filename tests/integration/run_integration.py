@@ -56,15 +56,18 @@ for _e in DATA["extracts"]:
     LOC_IDS[_e["name"]] = _e["location_id"]
 for _k in DATA["kills"] + DATA["bosses"]:
     LOC_IDS[_k["name"]] = _k["location_id"]
+LOOT_BY_STAND_IN = {_r["stand_in"]: _r for _r in DATA["loot"]}
 
 _victim_seq = [0]
 
 
 def victim(side="Savage", role="assault"):
-    """One entry of the client's raid kill list, with a unique bot profile id."""
+    """One entry of the client's raid kill list, with a unique bot profile id. AccountId matters: SPT sometimes has a
+    killed PMC message you and parses it."""
     _victim_seq[0] += 1
-    return {"ProfileId": f"{0xA9000000 + _victim_seq[0]:024x}", "Name": f"Bot{_victim_seq[0]}", "Side": side,
-            "Role": role, "Time": "00:05:00", "Level": 10, "BodyPart": "Head", "Weapon": "", "Distance": 20.0}
+    return {"ProfileId": f"{0xA9000000 + _victim_seq[0]:024x}", "AccountId": str(1000000 + _victim_seq[0]),
+            "Name": f"Bot{_victim_seq[0]}", "Side": side, "Role": role, "Time": "00:05:00", "Level": 10,
+            "PrestigeLevel": 0, "BodyPart": "Head", "Weapon": "", "Distance": 20.0}
 
 TRADERS = {t["key"]: t["id"] for t in DATA["traders"]}
 _TEMPLATES = None
@@ -196,7 +199,8 @@ def main():
 
     print("generating multiworld...", flush=True)
     multidata = generate({
-        "Runner": {"death_link": "true", "goal_quest_count": 5, "extracts_per_map": 2, "trap_percentage": 0},
+        "Runner": {"death_link": "true", "goal_quest_count": 5, "extracts_per_map": 2, "trap_percentage": 0,
+                   "lootsanity": ["barter", "provisions"]},
         "Buddy": {},
         "Kitted": {"starting_kit": "replace", "starting_kit_quality": "geared", "goal_quest_count": 5},
         "Kitted2": {"starting_kit": "replace", "starting_kit_quality": "scrappy", "goal_quest_count": 5},
@@ -542,6 +546,107 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         assert st["killCounts"] == before, (before, st["killCounts"])
         assert "shturman" not in st["bossesKilled"]
         assert LOC_IDS["Boss - Shturman"] not in watcher.checked
+    _()
+
+    # ---------------------------------------------------------------- lootsanity (Runner: barter + provisions)
+    def stand_ins_in(items):
+        return [i for i in items if i["_tpl"] in LOOT_BY_STAND_IN]
+
+    def map_stand_ins(start):
+        return stand_ins_in([it for sp in start["locationLoot"]["Loot"] for it in sp.get("Items") or []])
+
+    def put_in_profile(profile, tpls, where):
+        """Add stand-ins to the client's raid-end profile: where is 'pockets' or 'secure'."""
+        inv = profile["Inventory"]
+        slot = {"pockets": "Pockets", "secure": "SecuredContainer"}[where]
+        parent = next(i for i in inv["items"] if i.get("parentId") == inv["equipment"] and i.get("slotId") == slot)
+        children = [i for i in inv["items"] if i.get("parentId") == parent["_id"]]
+        used_slots = {i.get("slotId") for i in children}
+        used_cells = {(i["location"].get("x"), i["location"].get("y")) for i in children
+                      if isinstance(i.get("location"), dict)}
+        for n, tpl in enumerate(tpls):
+            if where == "pockets":
+                place = next(s for s in ("pocket1", "pocket2", "pocket3", "pocket4") if s not in used_slots)
+                used_slots.add(place)
+                item = {"slotId": place}
+            else:
+                x, y = next((x, y) for y in range(4) for x in range(4) if (x, y) not in used_cells)
+                used_cells.add((x, y))
+                item = {"slotId": "main", "location": {"x": x, "y": y, "r": 0}}
+            _victim_seq[0] += 1  # shared counter: every test item gets its own id
+            item.update({"_id": f"{0xAB000000 + _victim_seq[0]:024x}", "_tpl": tpl,
+                         "parentId": parent["_id"], "upd": {"StackObjectsCount": 1, "SpawnedInSession": True}})
+            inv["items"].append(item)
+        return profile
+
+    @step("lootsanity: Archipelago Item templates exist, identified and named in every language")
+    def _():
+        templates_ = c.item_templates()
+        sample = DATA["loot"][0]["stand_in"]
+        missing = [r["stand_in"] for r in DATA["loot"] if r["stand_in"] not in templates_]
+        assert not missing, f"{len(missing)} stand-in templates missing, e.g. {missing[:3]}"
+        props = templates_[sample]["_props"]
+        assert props.get("ExaminedByDefault") is True and props.get("Width") == 1 and props.get("Height") == 1, props
+        assert props.get("CanSellOnRagfair") is False and props.get("InsuranceDisabled") is True, props
+        for language in ("en", "de"):
+            name = c.locale(language).get(f"{sample} Name", "")
+            assert name.startswith("Archipelago Item"), (language, name)
+    _()
+
+    @step("lootsanity: a raid swaps one spawn per unchecked type, on the map and on bots")
+    def _():
+        start = c.raid_start("bigmap", loot=True)
+        on_map = map_stand_ins(start)
+        assert on_map, "expected Archipelago Items in Customs loot"
+        types = [LOOT_BY_STAND_IN[i["_tpl"]] for i in on_map]
+        assert len({t["tpl"] for t in types}) == len(types), "one Archipelago Item per type per raid"
+        assert {t["category"] for t in types} <= {"barter", "provisions"}, {t["category"] for t in types}
+        on_bots = []
+        for _ in range(3):
+            for bot in c.generate_bots("assault", 10):
+                inv = bot["Inventory"]
+                containers = {i["_id"] for i in inv["items"] if i.get("parentId") == inv["equipment"]
+                              and i.get("slotId") in ("TacticalVest", "Pockets", "Backpack")}
+                for item in stand_ins_in(inv["items"]):
+                    assert item["parentId"] in containers, f"stand-in outside rig/pockets/backpack: {item}"
+                    assert LOOT_BY_STAND_IN[item["_tpl"]]["bot_safe"], item
+                    on_bots.append(item)
+            if on_bots:
+                break
+        assert on_bots, "expected a Scav to carry an Archipelago Item"
+        bot_types = {LOOT_BY_STAND_IN[i["_tpl"]]["tpl"] for i in on_bots}
+        assert not bot_types & {t["tpl"] for t in types}, "a type got a second Archipelago Item in the same raid"
+        assert len(bot_types) == len(on_bots), "one Archipelago Item per type per raid (bots)"
+
+        picked = [types[0], types[1]] if len(types) > 1 else [types[0]]
+        profile = put_in_profile(c.pmc(), [t["stand_in"] for t in picked], "pockets")
+        c.raid_end(start["serverId"], "Survived", exit_name="Smuggler's Boat", profile=profile)
+        for t in picked:
+            watcher.wait_checked(t["location_id"], timeout=30)
+        st = wait(lambda: (lambda s: s if all(t["tpl"] in s.get("lootFound", []) for t in picked) else None)(state()),
+                  what="loot found saved")
+        assert not stand_ins_in(c.pmc()["Inventory"]["items"]), "Archipelago Items must not reach the stash"
+        for t in picked:
+            assert not any(i["_tpl"] == t["tpl"] for i in c.pmc()["Inventory"]["items"]
+                           if i.get("upd", {}).get("SpawnedInSession")), "the original item must not be given"
+    _()
+
+    @step("lootsanity: a found type spawns normally again; on death only the secure container counts")
+    def _():
+        found = set(state()["lootFound"])
+        start = c.raid_start("bigmap", loot=True)
+        types = [LOOT_BY_STAND_IN[i["_tpl"]] for i in map_stand_ins(start)]
+        assert not {t["tpl"] for t in types} & found, "a found type must not get another Archipelago Item"
+        assert len(types) >= 2, "need two Archipelago Items for this step"
+        kept, lost = types[0], types[1]
+        profile = put_in_profile(c.pmc(), [kept["stand_in"]], "secure")
+        profile = put_in_profile(profile, [lost["stand_in"]], "pockets")
+        c.raid_end(start["serverId"], "Killed", profile=profile)
+        watcher.wait_checked(kept["location_id"], timeout=30)
+        st = wait(lambda: (lambda s: s if kept["tpl"] in s.get("lootFound", []) else None)(state()), what="saved")
+        time.sleep(3)
+        assert lost["tpl"] not in st["lootFound"] and lost["location_id"] not in watcher.checked
+        assert not stand_ins_in(c.pmc()["Inventory"]["items"]), "Archipelago Items must not reach the stash"
     _()
 
     @step("a death in raid sends DeathLink to the multiworld")

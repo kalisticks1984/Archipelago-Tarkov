@@ -122,6 +122,8 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 | `extracts_per_map` | `1` | How many successful PMC extractions on each map are checks (0–5) |
 | `kill_milestones` | `short` | Checks for total kills, in PMC and Scav raids on unlocked maps: `off`, `short` (5–50 Scavs, 1–25 PMCs) or `long` (5–300 Scavs, 1–100 PMCs) |
 | `boss_checks` | `true` | The first kill of each boss is a check (13: the Goons count as three) |
+| `lootsanity` | none | Item categories whose item types become checks: any of `barter`, `keys`, `medication`, `provisions`, `ammo`, `weapons`, `weapon_mods`, `gear`, `info`, `maps`, `special_equipment`, `money`. See [Lootsanity](#lootsanity) |
+| `lootsanity_progression` | `false` | Let loot checks hold progression items. Off by default: some items are very rare spawns |
 | `lock_flea_market` | `true` | The Flea Market is closed until you find *Flea Market Access* |
 | `level_pacing` | `normal` | How many maps the logic expects you to own before it asks for higher-level quests: `relaxed`, `normal` or `fast` |
 | `trap_percentage` | `10` | Percentage of filler items replaced by traps |
@@ -214,6 +216,23 @@ only while you're in raid, and only with the client plugin; out of raid it's jus
 **The Collector goal** — accept Therapist's *Colleagues - Part 3* **before** turning in Jaeger's *The Huntsman Path -
 Sadist*. *Colleagues - Part 3* is only offered while *Sadist* is in progress, and *Collector* needs it. The contact
 reminds you when it matters.
+
+### Lootsanity
+
+With `lootsanity` set, every item type in the chosen categories is a check. In each raid, the first item of a type
+you haven't brought out yet spawns as an **Archipelago Item** instead: on the ground, in containers, or in a bot's rig,
+pockets or backpack. Its name says what it stands for, for example *Archipelago Item (Bottle of water (0.6L))*. Only
+one spawn per type per raid is swapped; the rest of that type is normal loot.
+
+- **Extract with it** to send the check. The Archipelago Item is then removed: you get whatever the check holds in the
+  multiworld, never the original item.
+- **If you die**, Archipelago Items in your secure container still count (like anything else there). The rest are lost,
+  and their checks stay available.
+- Once a type's check is sent, that type spawns normally from then on.
+- Bots never lose the ammo, magazines, meds or grenades they use themselves; those types only appear as Archipelago
+  Items in loose loot and containers.
+- With the optional client plugin, Archipelago Items show the Archipelago symbol. Without it they look like a pack of
+  bolts with a violet background.
 
 ### The random starting kit
 

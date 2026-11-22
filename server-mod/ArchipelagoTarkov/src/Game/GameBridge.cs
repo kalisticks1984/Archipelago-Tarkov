@@ -289,6 +289,14 @@ public class GameBridge(
                 yield return boss.LocationId;
             }
         }
+
+        foreach (var tpl in state.LootFound)
+        {
+            if (data.LootByTpl.TryGetValue(tpl, out var loot))
+            {
+                yield return loot.LocationId;
+            }
+        }
     }
 
     public QuestStatusEnum? QuestState(string profileId, string questId)

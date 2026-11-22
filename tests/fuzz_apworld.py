@@ -16,6 +16,8 @@ AP = os.getcwd()
 count = int(sys.argv[1]) if len(sys.argv) > 1 else 50
 out = sys.argv[2] if len(sys.argv) > 2 else "fuzz-out"
 traders = ["Prapor", "Therapist", "Skier", "Peacekeeper", "Mechanic", "Ragman", "Jaeger"]
+loot_categories = ["barter", "keys", "medication", "provisions", "ammo", "weapons", "weapon_mods", "gear", "info",
+                   "maps", "special_equipment", "money"]
 
 
 def random_tarkov(rng):
@@ -31,6 +33,9 @@ def random_tarkov(rng):
         "extracts_per_map": rng.randint(0, 5),
         "kill_milestones": rng.choice(["off", "short", "long"]),
         "boss_checks": rng.choice([True, False]),
+        "lootsanity": rng.choice([[], [], ["keys"], ["barter", "provisions", "medication"],
+                                  rng.sample(loot_categories, rng.randint(1, len(loot_categories)))]),
+        "lootsanity_progression": rng.choice([True, False]),
         "lock_flea_market": rng.choice([True, False]),
         "level_pacing": rng.choice(["relaxed", "normal", "fast"]),
         "trap_percentage": rng.choice([0, 10, 50]),
@@ -43,6 +48,7 @@ def random_tarkov(rng):
 
 
 failures = []
+rejected = []
 start = time.time()
 for i in range(count):
     rng = random.Random(i)
@@ -64,12 +70,19 @@ for i in range(count):
                           cwd=AP, capture_output=True, text=True, stdin=subprocess.DEVNULL,
                           env=dict(os.environ, SKIP_REQUIREMENTS_UPDATE="1"), timeout=900)
     ok = proc.returncode == 0 and "Done." in proc.stdout
-    if not ok:
-        failures.append((i, seed, (proc.stdout + proc.stderr)[-2500:]))
+    output = proc.stdout + proc.stderr
+    if not ok and "Options.OptionError: Escape from Tarkov" in output:
+        # Random options can ask for something impossible (e.g. a quest goal with no quest checks); the world
+        # refusing it with a clear message is the intended behaviour, not a failure.
+        rejected.append(i)
+        print(f"[{i}] rejected settings: {output.split('Options.OptionError: ')[-1].splitlines()[0]}", flush=True)
+    elif not ok:
+        failures.append((i, seed, output[-2500:]))
         print(f"[{i}] FAIL seed={seed}", flush=True)
-        print((proc.stdout + proc.stderr)[-1500:], flush=True)
+        print(output[-1500:], flush=True)
     elif i % 10 == 0:
         print(f"[{i}] ok ({time.time() - start:.0f}s)", flush=True)
 
-print(f"\n{count - len(failures)}/{count} generations succeeded in {time.time() - start:.0f}s")
+print(f"\n{count - len(failures) - len(rejected)}/{count} generations succeeded, {len(rejected)} settings rejected as "
+      f"intended, {len(failures)} failed, in {time.time() - start:.0f}s")
 sys.exit(1 if failures else 0)

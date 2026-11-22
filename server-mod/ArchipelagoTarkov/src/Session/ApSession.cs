@@ -78,6 +78,50 @@ public sealed class ApSession
     public bool FleaLocked => Active && State.SlotFlag("lock_flea_market", true) && !_fleaUnlocked;
     public bool DeathLinkEnabled => Active && State.SlotFlag("death_link");
 
+    // ------------------------------------------------------------------ lootsanity
+    /// <summary>Item types that already got their one Archipelago Item this raid.</summary>
+    public HashSet<string> LootPlacedThisRaid { get; } = new();
+    public Random LootRandom { get; } = new();
+
+    /// <summary>True when stand-ins should spawn on this map: the slot has loot checks and the map is unlocked.</summary>
+    public bool LootsanityOn(string? mapKey) =>
+        LootStandIns.Ready && Active && mapKey != null && IsMapUnlocked(mapKey) && State.SlotLocations.Any(id => _data.LootLocationIds.Contains(id));
+
+    /// <summary>The loot check for an item type, while it is still to be found; null otherwise.</summary>
+    public LootDef? LootTarget(string tpl) =>
+        _data.LootByTpl.TryGetValue(tpl, out var def) && State.SlotLocations.Contains(def.LocationId)
+        && !State.Checked.Contains(def.LocationId) && !State.LootFound.Contains(tpl)
+            ? def
+            : null;
+
+    /// <summary>
+    /// Raid end: takes every Archipelago Item out of the client's profile and records the ones brought out (all when
+    /// the player survived, only the secure container's when not). Nothing happens on a transit: they travel along.
+    /// </summary>
+    public void CollectLoot(string? mapKey, PmcData? profile, ExitStatus? result)
+    {
+        if (result == ExitStatus.TRANSIT || profile is null)
+        {
+            return;
+        }
+
+        var survived = result is ExitStatus.SURVIVED or ExitStatus.RUNNER;
+        var counted = LootStandIns.TakeStandIns(profile.Inventory, _data, survived);
+        if (counted.Count == 0 || !Active || mapKey is null || !IsMapUnlocked(mapKey))
+        {
+            return;
+        }
+
+        var added = counted.Where(def => State.LootFound.Add(def.Tpl)).Select(def => def.ItemName).ToList();
+        if (added.Count > 0)
+        {
+            _dirty = true;
+            Say(added.Count == 1
+                ? $"Archipelago Item brought out: {added[0]}."
+                : $"{added.Count} Archipelago Items brought out: {string.Join(", ", added.Take(8))}{(added.Count > 8 ? "..." : "")}.");
+        }
+    }
+
     // ================================================================== commands
     /// <summary>Save connection settings and connect. Returns an error message instead when not allowed.</summary>
     public string? Configure(string server, string slot, string? password)
@@ -201,6 +245,7 @@ public sealed class ApSession
         InRaid = true;
         RaidMap = mapKey;
         RaidStarted = DateTime.UtcNow;
+        LootPlacedThisRaid.Clear();
         if (State.StartingKitPending == "replace")
         {
             // Never wipe a stash that has seen a raid: hand the kit over on top instead.

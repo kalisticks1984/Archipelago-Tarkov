@@ -18,6 +18,9 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
 - **453 checks** with the default options: every main-trader quest that can be completed reliably on a fresh
   profile (364), every hideout area level (58), one PMC extraction per map (10), Scav and PMC kill totals (8) and the
   first kill of each boss (13). Up to 502 with five extractions per map and the long kill milestones.
+- **Lootsanity (optional):** pick item categories, and every item type in them is a check (up to ~3,200). The first
+  spawn of an unchecked type in each raid is an *Archipelago Item*; extract with it to send the check. You never get
+  the original item. The client plugin draws these with the Archipelago symbol.
 - **Goals:** a number of quests, Fence's *Collector* (Kappa), extracting from every map, or killing every boss.
 - **Items:** maps, traders, Flea Market access, experience, trader reputation, money, and crates of weapons, armor,
   medicine, ammo, keys, stims, barter goods and provisions. Traps: Fence Grudge, Exhaustion, Scav Cooldown.

@@ -54,6 +54,8 @@ public sealed class ProfileState
     /// <summary>Victims already counted in the current raid. A raid with transits ends once per map, so the same
     /// victim may be reported again; cleared when the raid really ends.</summary>
     [JsonPropertyName("raidVictimsCounted")] public HashSet<string> RaidVictimsCounted { get; set; } = new();
+    /// <summary>Lootsanity: original item templates whose Archipelago Item was brought out of a raid.</summary>
+    [JsonPropertyName("lootFound")] public HashSet<string> LootFound { get; set; } = new();
     [JsonPropertyName("goalSent")] public bool GoalSent { get; set; }
     [JsonPropertyName("collectorWarned")] public bool CollectorWarned { get; set; }
 
@@ -153,6 +155,7 @@ public sealed class ProfileState
         KillCounts.Clear();
         BossesKilled.Clear();
         RaidVictimsCounted.Clear();
+        LootFound.Clear();
         GoalSent = false;
         AutoConnect = false;
     }

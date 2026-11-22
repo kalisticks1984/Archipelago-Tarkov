@@ -61,6 +61,39 @@ BOSSES = OrderedDict([
 ])
 BOSS_LEVEL = 10
 
+# Lootsanity: each lootable item type is a check. Ids come from LOOT_OFFSET upwards; an existing table's ids are
+# kept on regeneration (new types are appended), so ids never move when SPT adds or removes items.
+LOOT_OFFSET = 100_000
+LOOT_MAX = 100_000
+# Handbook top-level category id -> lootsanity category key (the APWorld option uses these keys).
+LOOT_CATEGORIES = OrderedDict([
+    ("5b47574386f77428ca22b33e", "barter"),
+    ("5b47574386f77428ca22b342", "keys"),
+    ("5b47574386f77428ca22b344", "medication"),
+    ("5b47574386f77428ca22b340", "provisions"),
+    ("5b47574386f77428ca22b346", "ammo"),
+    ("5b5f78dc86f77409407a7f8e", "weapons"),
+    ("5b5f71a686f77447ed5636ab", "weapon_mods"),
+    ("5b47574386f77428ca22b33f", "gear"),
+    ("5b47574386f77428ca22b341", "info"),
+    ("5b47574386f77428ca22b343", "maps"),
+    ("5b47574386f77428ca22b345", "special_equipment"),
+    ("5b5f78b786f77447ed5636af", "money"),
+])
+# Bots carrying these spawn with them on every map but Labs.
+GENERIC_BOT_TYPES = {"assault", "bear", "usec", "pmcbear", "pmcusec"}
+BOT_LOOT_SLOTS = ("TacticalVest", "Pockets", "Backpack")
+# Items bots use themselves (reloading, healing, throwing): never swapped on a bot, only in loose loot and containers.
+BOT_USED_BASES = {
+    "5485a8684bdc2da71d8b4567",  # Ammo
+    "543be5cb4bdc2deb348b4568",  # AmmoBox
+    "5448bc234bdc2d3c308b4569",  # Magazine
+    "543be5664bdc2dd4348b4569",  # Meds (includes stimulants)
+    "543be6564bdc2df4348b4568",  # ThrowWeap
+}
+# Stand-in template ids start with this, so the client plugin can recognise them without a list.
+STAND_IN_PREFIX = "a9a9a9"
+
 # Map key -> (display name, location ids used in quest data / raid server ids, text hints)
 MAPS = OrderedDict([
     ("factory", ("Factory", ["factory4_day", "factory4_night"],
@@ -141,6 +174,115 @@ def as_list(value):
     if isinstance(value, list):
         return value
     return [value]
+
+
+def extract_loot(db, items, locale, location_name_to_key, out_path):
+    """Lootsanity table: every item type that can be looted in a raid, its category, and where it spawns."""
+    import hashlib
+
+    handbook = load(os.path.join(db, "templates", "handbook.json"))
+    hb_cats = {c["Id"]: c for c in handbook["Categories"]}
+
+    def top_category(cat_id):
+        while hb_cats.get(cat_id, {}).get("ParentId"):
+            cat_id = hb_cats[cat_id]["ParentId"]
+        return cat_id
+
+    category_of = {}
+    for entry in handbook["Items"]:
+        key = LOOT_CATEGORIES.get(top_category(entry["ParentId"]))
+        if key:
+            category_of[entry["Id"]] = key
+
+    def is_a(tpl, bases):
+        for _ in range(40):
+            if tpl in bases:
+                return True
+            tpl = items.get(tpl, {}).get("_parent")
+            if not tpl:
+                return False
+        return False
+
+    # Where each type can be found: loose loot and static containers per map; generic bots anywhere.
+    spawn_maps = {}
+    for folder in sorted(os.listdir(os.path.join(db, "locations"))):
+        map_key = location_name_to_key.get(folder.lower())
+        folder_path = os.path.join(db, "locations", folder)
+        if map_key is None or not os.path.isdir(folder_path):
+            continue
+        loose_path = os.path.join(folder_path, "looseLoot.json")
+        if os.path.exists(loose_path):
+            for sp in load(loose_path).get("spawnpoints", []):
+                for it in (sp.get("template") or {}).get("Items", []):
+                    spawn_maps.setdefault(it["_tpl"], set()).add(map_key)
+        static_path = os.path.join(folder_path, "staticLoot.json")
+        if os.path.exists(static_path):
+            for container in load(static_path).values():
+                for dist in container.get("itemDistribution", []):
+                    if (dist.get("relativeProbability") or 0) > 0:
+                        spawn_maps.setdefault(dist["tpl"], set()).add(map_key)
+    on_bots = set()
+    for bot_type in GENERIC_BOT_TYPES:
+        path = os.path.join(db, "bots", "types", f"{bot_type}.json")
+        if os.path.exists(path):
+            slots = (load(path).get("inventory") or {}).get("items") or {}
+            for slot in BOT_LOOT_SLOTS:
+                on_bots.update((slots.get(slot) or {}).keys())
+
+    # Keep the ids (and names) of an existing table so they never move.
+    previous = {}
+    if os.path.exists(out_path):
+        try:
+            previous = {r["tpl"]: r for r in load(out_path).get("loot", [])}
+        except (OSError, ValueError):
+            previous = {}
+    used_ids = {r["location_id"] for r in previous.values()}
+    used_names = {r["name"] for r in previous.values()}
+    next_id = max(used_ids, default=LOCATION_BASE + LOOT_OFFSET - 1) + 1
+
+    records = []
+    for tpl in sorted(set(spawn_maps) | on_bots):
+        item = items.get(tpl)
+        category = category_of.get(tpl)
+        if item is None or category is None or item.get("_type") != "Item":
+            continue
+        if (item.get("_props") or {}).get("QuestItem"):
+            continue
+        bot_safe = not is_a(tpl, BOT_USED_BASES)
+        # Prefer real spawn places: bot loot tables can roll almost anything at tiny odds. Only types found on
+        # nothing but bots count as "any map".
+        maps = [m for m in MAPS if m in spawn_maps.get(tpl, ())]
+        if not maps and not (tpl in on_bots and bot_safe):
+            continue  # only on bots, and bots never give it up (they use it)
+        old = previous.get(tpl)
+        if old:
+            name, location_id = old["name"], old["location_id"]
+        else:
+            display = locale.get(f"{tpl} Name") or item.get("_name") or tpl
+            name = f"Loot - {display}"
+            if name in used_names:
+                name = f"Loot - {display} ({locale.get(f'{tpl} ShortName') or tpl[-6:]})"
+            n = 2
+            base_name = name
+            while name in used_names:
+                name = f"{base_name} {n}"
+                n += 1
+            location_id = next_id
+            next_id += 1
+        used_names.add(name)
+        if location_id >= LOCATION_BASE + LOOT_OFFSET + LOOT_MAX:
+            raise SystemExit("lootsanity location id range is full")
+        records.append({
+            "tpl": tpl,
+            "name": name,
+            "category": category,
+            "maps": maps,  # empty: found on bots everywhere
+            "bot_safe": bot_safe,
+            "stand_in": STAND_IN_PREFIX + hashlib.sha1(f"archipelago-loot:{tpl}".encode()).hexdigest()[:18],
+            "location_id": location_id,
+        })
+    records.sort(key=lambda r: r["location_id"])
+    return records
 
 
 def main(spt_data_dir: str, out_path: str) -> None:
@@ -591,6 +733,8 @@ def main(spt_data_dir: str, out_path: str) -> None:
             "location_id": LOCATION_BASE + BOSS_OFFSET + b_index,
         })
 
+    loot_records = extract_loot(db, items, locale, location_name_to_key, out_path)
+
     # ----------------------------------------------------------------------------------
     # Items
     # ----------------------------------------------------------------------------------
@@ -642,6 +786,7 @@ def main(spt_data_dir: str, out_path: str) -> None:
     lines += [f"loc:{e['location_id']}:{e['name']}" for e in extract_records]
     lines += [f"loc:{k['location_id']}:{k['name']}" for k in kill_records]
     lines += [f"loc:{b['location_id']}:{b['name']}" for b in boss_records]
+    lines += [f"loc:{r['location_id']}:{r['name']}:{r['tpl']}:{r['stand_in']}" for r in loot_records]
     data_hash = hashlib.sha1("\n".join(sorted(lines)).encode("utf-8")).hexdigest()
 
     data = OrderedDict()
@@ -666,6 +811,7 @@ def main(spt_data_dir: str, out_path: str) -> None:
     data["extracts"] = extract_records
     data["kills"] = kill_records
     data["bosses"] = boss_records
+    data["loot"] = loot_records
     data["items"] = item_records
 
     with open(out_path, "w", encoding="utf-8") as f:
@@ -679,6 +825,10 @@ def main(spt_data_dir: str, out_path: str) -> None:
           f"kill milestones: {len(kill_records)}; bosses: {len(boss_records)}; items: {len(item_records)}")
     for b in boss_records:
         print(f"   boss {b['name']}: {', '.join(b['maps'])}")
+    from collections import Counter
+    by_cat = Counter(r["category"] for r in loot_records)
+    print(f"lootsanity: {len(loot_records)} item types ({sum(1 for r in loot_records if not r['maps'])} on bots "
+          f"everywhere): " + ", ".join(f"{k} {v}" for k, v in sorted(by_cat.items())))
     print(f"objectives with unknown map (treated as needing every map): {len(unknown_objectives)}")
     for name, text in unknown_objectives:
         print(f"   ? {name}: {text}")

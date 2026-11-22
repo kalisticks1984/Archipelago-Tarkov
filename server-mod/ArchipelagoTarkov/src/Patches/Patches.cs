@@ -1,4 +1,5 @@
 using System.Reflection;
+using ArchipelagoTarkov.Game;
 using ArchipelagoTarkov.Session;
 using HarmonyLib;
 using SPTarkov.Reflection.Patching;
@@ -31,6 +32,7 @@ public static class PatchInstaller
     [
         typeof(LocationController), typeof(TraderHelper), typeof(LocationLifecycleService),
         typeof(ProfileCallbacks), typeof(EventOutputHolder), typeof(ProfileController), typeof(GameCallbacks),
+        typeof(BotController),
     ];
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Ready = new();
@@ -75,6 +77,7 @@ public static class PatchInstaller
             new ItemEventSyncPatch(),
             new ScavRegeneratePatch(),
             new GameStartPatch(),
+            new BotGeneratePatch(),
         ];
 
         foreach (var patch in patches)
@@ -213,9 +216,14 @@ public class RaidStartPatch : AbstractPatch
             }
 
             var mapKey = manager.MapKeyFor(request?.Location);
+            List<SpawnpointTemplate>? swappedLoot = null;
             lock (session)
             {
                 session.OnRaidStart(mapKey);
+                if (result?.LocationLoot?.Loot is { } loot && session.LootsanityOn(mapKey))
+                {
+                    swappedLoot = LootStandIns.SwapLoot(loot, session.LootTarget, session.LootPlacedThisRaid, session.LootRandom);
+                }
             }
 
             var locked = manager.LockedMaps(sessionId.ToString());
@@ -227,6 +235,11 @@ public class RaidStartPatch : AbstractPatch
                     Transits = LocationListPatch.DisableTransits(result.LocationLoot.Transits, manager, locked),
                 };
             }
+
+            if (swappedLoot is not null && result?.LocationLoot is not null)
+            {
+                result.LocationLoot = result.LocationLoot with { Loot = swappedLoot };
+            }
         }
         catch (Exception ex)
         {
@@ -234,6 +247,56 @@ public class RaidStartPatch : AbstractPatch
         }
 
         return result;
+    }
+}
+
+/// <summary>client/game/bot/generate: lootsanity swaps the first carried item of each still-unchecked type.</summary>
+public class BotGeneratePatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(BotController), nameof(BotController.Generate));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, ref Task<IEnumerable<BotBase>> __result)
+    {
+        if (SessionManager.Instance?.Get(__0.ToString()) is null || __result is null)
+        {
+            return;
+        }
+
+        __result = After(__result, __0);
+    }
+
+    private static async Task<IEnumerable<BotBase>> After(Task<IEnumerable<BotBase>> original, MongoId sessionId)
+    {
+        var bots = await original.ConfigureAwait(false);
+        try
+        {
+            var session = SessionManager.Instance?.Get(sessionId.ToString());
+            if (session is null || bots is null)
+            {
+                return bots!;
+            }
+
+            var list = bots as IList<BotBase> ?? bots.ToList();
+            lock (session)
+            {
+                if (session.InRaid && session.LootsanityOn(session.RaidMap))
+                {
+                    foreach (var bot in list)
+                    {
+                        LootStandIns.SwapBotLoot(bot, session.LootTarget, session.LootPlacedThisRaid);
+                    }
+                }
+            }
+
+            return list;
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"bot generation: {ex}");
+            return bots!;
+        }
     }
 }
 
@@ -274,6 +337,8 @@ public class RaidEndPatch : AbstractPatch
                 session.BeforeRaidEnd(__1.Results.Profile, isPmc);
                 // Read the victims as the client sent them, before SPT merges the profile.
                 session.RecordVictims(mapKey, __1.Results.Profile.Stats?.Eft?.Victims);
+                // Take the Archipelago Items out before SPT copies the profile into the stash.
+                session.CollectLoot(mapKey, __1.Results.Profile, __1.Results.Result);
             }
         }
         catch (Exception ex)

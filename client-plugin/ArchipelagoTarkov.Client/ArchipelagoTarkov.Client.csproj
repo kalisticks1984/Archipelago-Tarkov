@@ -37,10 +37,16 @@
 
   <ItemGroup>
     <Reference Include="$(BepInExCore)\BepInEx.dll" Private="false" />
+    <Reference Include="$(BepInExCore)\0Harmony.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\UnityEngine.ImageConversionModule.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine.JSONSerializeModule.dll" Private="false" />
     <Reference Include="$(SptPlugins)\spt-common.dll" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\archipelago.png" LogicalName="ArchipelagoTarkov.Client.Resources.archipelago.png" />
   </ItemGroup>
 
   <Target Name="CheckSptPath" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(BepInExCore)\BepInEx.dll')">

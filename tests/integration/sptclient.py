@@ -145,11 +145,22 @@ class SptClient:
     def locations(self) -> Dict[str, Any]:
         return self.call("/client/locations")
 
-    def raid_start(self, location: str, side: str = "Pmc") -> Dict[str, Any]:
+    def raid_start(self, location: str, side: str = "Pmc", loot: bool = False) -> Dict[str, Any]:
+        """Start a raid. loot=True has SPT generate the map's loot (slower; off by default)."""
         return self.call("/client/match/local/start", {
             "serverId": "", "location": location, "timeVariant": "CURR", "mode": "PVE_OFFLINE",
-            "playerSide": side, "transitionType": "None", "shouldSkipLootGeneration": True,
+            "playerSide": side, "transitionType": "None", "shouldSkipLootGeneration": not loot,
         })
+
+    def generate_bots(self, role: str = "assault", limit: int = 10) -> List[Dict[str, Any]]:
+        return self.call("/client/game/bot/generate", {
+            "conditions": [{"Role": role, "Limit": limit, "Difficulty": "normal"}]})
+
+    def item_templates(self) -> Dict[str, Any]:
+        return self.call("/client/items")
+
+    def locale(self, language: str = "en") -> Dict[str, Any]:
+        return self.call(f"/client/locale/{language}")
 
     def raid_end(self, server_id: str, result: str, exit_name: Optional[str] = None,
                  killer: Optional[str] = None, profile: Optional[Dict[str, Any]] = None,

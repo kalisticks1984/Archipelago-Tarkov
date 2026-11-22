@@ -19,7 +19,15 @@ public sealed class TarkovData
     [JsonPropertyName("extracts")] public List<ExtractDef> Extracts { get; set; } = [];
     [JsonPropertyName("kills")] public List<KillDef> Kills { get; set; } = [];
     [JsonPropertyName("bosses")] public List<BossDef> Bosses { get; set; } = [];
+    [JsonPropertyName("loot")] public List<LootDef> Loot { get; set; } = [];
     [JsonPropertyName("items")] public List<ItemDef> Items { get; set; } = [];
+
+    /// <summary>Lootsanity: original item template id -> its check.</summary>
+    [JsonIgnore] public Dictionary<string, LootDef> LootByTpl { get; private set; } = new();
+    /// <summary>Lootsanity: stand-in ("Archipelago Item") template id -> the check it belongs to.</summary>
+    [JsonIgnore] public Dictionary<string, LootDef> LootByStandIn { get; private set; } = new();
+    /// <summary>Lootsanity: every loot location id.</summary>
+    [JsonIgnore] public HashSet<long> LootLocationIds { get; private set; } = new();
 
     /// <summary>SPT bot role (bossBully, followerBigPipe...) -> boss. Case-insensitive.</summary>
     [JsonIgnore] public Dictionary<string, BossDef> BossesByRole { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -86,6 +94,14 @@ public sealed class TarkovData
         {
             BossesByRole[b.Role] = b;
             LocationNames[b.LocationId] = b.Name;
+        }
+
+        foreach (var l in Loot)
+        {
+            LootByTpl[l.Tpl] = l;
+            LootByStandIn[l.StandIn] = l;
+            LootLocationIds.Add(l.LocationId);
+            LocationNames[l.LocationId] = l.Name;
         }
 
         foreach (var m in Maps)
@@ -175,6 +191,23 @@ public sealed class BossDef
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("maps")] public List<string> Maps { get; set; } = [];
     [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class LootDef
+{
+    /// <summary>The original item template.</summary>
+    [JsonPropertyName("tpl")] public string Tpl { get; set; } = "";
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("category")] public string Category { get; set; } = "";
+    [JsonPropertyName("maps")] public List<string> Maps { get; set; } = [];
+    /// <summary>False for things bots use themselves (ammo, magazines, meds, grenades): never swapped on a bot.</summary>
+    [JsonPropertyName("bot_safe")] public bool BotSafe { get; set; }
+    /// <summary>The "Archipelago Item" template that stands in for it in raid.</summary>
+    [JsonPropertyName("stand_in")] public string StandIn { get; set; } = "";
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+
+    /// <summary>The item's display name (the location name without its "Loot - " prefix).</summary>
+    [JsonIgnore] public string ItemName => Name.StartsWith("Loot - ", StringComparison.Ordinal) ? Name[7..] : Name;
 }
 
 /// <summary>How a raid victim counts towards the kill milestones.</summary>

@@ -29,6 +29,9 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
 - Reaching a total number of Scav or PMC kills (optional). Kills in PMC and Scav raids both count, on unlocked maps.
 - Killing each boss for the first time (optional): Reshala, Killa, Shturman, Glukhar, Sanitar, Tagilla, Kaban,
   Kollontay, Zryachiy, Partisan, and each of the Goons (Knight, Big Pipe, Birdeye).
+- Lootsanity (optional): bringing out an item type for the first time, for the categories you choose. In each raid the
+  first spawn of an unchecked type is an *Archipelago Item*; extract with it (or keep it in your secure container if
+  you die) to send the check. You don't get the original item.
 
 ## What items can I receive?
 

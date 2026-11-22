@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Dict, List
 
-from BaseClasses import CollectionState, Item, ItemClassification, Location, Region, Tutorial
+from BaseClasses import CollectionState, Item, ItemClassification, Location, LocationProgressType, Region, Tutorial
 from Options import OptionError
 from worlds.AutoWorld import WebWorld, World
 
@@ -13,7 +13,8 @@ from .items import (FILLER_WEIGHTS, FLEA_ITEM, GAME_NAME, MAP_ITEMS, TRADER_ITEM
                     item_name_groups, item_name_to_id, item_table)
 from .logic import (ALL_MAPS, FLEA_MIN_LEVEL, LAB_KEYCARD_SOURCES, WEAPON_PARTS_TRADERS, Requirement, RequirementBuilder,
                     maps_needed_for_level)
-from .options import SHORT_KILL_LIMITS, Goal, KillMilestones, StartingMap, StartingTraders, TarkovOptions
+from .options import (LOOT_CATEGORY_KEYS, SHORT_KILL_LIMITS, Goal, KillMilestones, StartingMap, StartingTraders,
+                      TarkovOptions)
 
 logger = logging.getLogger("Escape from Tarkov")
 
@@ -48,7 +49,16 @@ def _build_location_table() -> Dict[str, int]:
         table[k["name"]] = k["location_id"]
     for b in data["bosses"]:
         table[b["name"]] = b["location_id"]
+    for r in data["loot"]:
+        table[r["name"]] = r["location_id"]
     return table
+
+
+def loot_requirement(loot: dict) -> Requirement:
+    # No maps listed: generic bots carry it, so any map will do.
+    if not loot["maps"]:
+        return Requirement()
+    return Requirement(clauses=frozenset({frozenset(loot["maps"])}))
 
 
 def kill_requirement(kill: dict) -> Requirement:
@@ -98,6 +108,9 @@ class TarkovWorld(World):
         "Extractions": {e["name"] for e in load_data()["extracts"]},
         "Kills": {k["name"] for k in load_data()["kills"]},
         "Bosses": {b["name"] for b in load_data()["bosses"]},
+        "Loot": {r["name"] for r in load_data()["loot"]},
+        **{f"Loot - {key.replace('_', ' ').title()}": {r["name"] for r in load_data()["loot"] if r["category"] == key}
+           for key in LOOT_CATEGORY_KEYS},
     }
 
     def __init__(self, multiworld, player):
@@ -110,6 +123,7 @@ class TarkovWorld(World):
         self.extract_checks: List[dict] = []
         self.kill_checks: List[dict] = []
         self.boss_checks: List[dict] = []
+        self.loot_checks: List[dict] = []
         self.goal_quest_count = 0
 
     # ------------------------------------------------------------------ generation steps
@@ -146,6 +160,8 @@ class TarkovWorld(World):
             self.kill_checks = [k for k in data["kills"] if k["count"] <= SHORT_KILL_LIMITS[k["target"]]]
         if self.options.boss_checks:
             self.boss_checks = list(data["bosses"])
+        categories = set(self.options.lootsanity.value)
+        self.loot_checks = [r for r in data["loot"] if r["category"] in categories]
 
         if self.options.goal == Goal.option_quest_count:
             if not self.quest_checks:
@@ -186,6 +202,7 @@ class TarkovWorld(World):
         count += sum(1 for e in self.extract_checks if e["map"] in maps)
         count += sum(1 for k in self.kill_checks if ok(kill_requirement(k)))
         count += sum(1 for b in self.boss_checks if ok(boss_requirement(b)))
+        count += sum(1 for r in self.loot_checks if ok(loot_requirement(r)))
         return count
 
     def create_regions(self) -> None:
@@ -204,6 +221,12 @@ class TarkovWorld(World):
             tarkov.locations.append(TarkovLocation(self.player, k["name"], k["location_id"], tarkov))
         for b in self.boss_checks:
             tarkov.locations.append(TarkovLocation(self.player, b["name"], b["location_id"], tarkov))
+        loot_excluded = not self.options.lootsanity_progression
+        for r in self.loot_checks:
+            location = TarkovLocation(self.player, r["name"], r["location_id"], tarkov)
+            if loot_excluded:
+                location.progress_type = LocationProgressType.EXCLUDED
+            tarkov.locations.append(location)
 
         # Goal events
         if self.options.goal == Goal.option_quest_count:
@@ -243,17 +266,25 @@ class TarkovWorld(World):
             pool.append(self.create_item(FLEA_ITEM))
 
         total_locations = (len(self.quest_checks) + len(self.hideout_checks) + len(self.extract_checks)
-                           + len(self.kill_checks) + len(self.boss_checks))
-        if len(pool) > total_locations:
-            raise OptionError(f"Escape from Tarkov ({self.player_name}): {total_locations} checks are not enough for "
-                              f"{len(pool)} required items. Enable more checks.")
+                           + len(self.kill_checks) + len(self.boss_checks) + len(self.loot_checks))
+        # Loot checks that may only hold filler can't take the progression items.
+        loot_excluded = len(self.loot_checks) if not self.options.lootsanity_progression else 0
+        if len(pool) > total_locations - loot_excluded:
+            raise OptionError(f"Escape from Tarkov ({self.player_name}): {total_locations - loot_excluded} checks are "
+                              f"not enough for {len(pool)} required items. Enable more checks.")
         remaining = total_locations - len(pool)
         trap_count = 0
         if TRAP_ITEMS and self.options.trap_percentage.value:
             trap_count = remaining * self.options.trap_percentage.value // 100
         for _ in range(trap_count):
             pool.append(self.create_item(self.random.choice(TRAP_ITEMS)))
-        for _ in range(remaining - trap_count):
+        # Excluded locations take only filler-class items (or traps): make sure there are enough of those.
+        filler_only = max(0, min(remaining - trap_count, loot_excluded - trap_count))
+        filler_names = [n for n in FILLER_WEIGHTS if item_table[n].classification == ItemClassification.filler]
+        filler_weights = [FILLER_WEIGHTS[n] for n in filler_names]
+        for _ in range(filler_only):
+            pool.append(self.create_item(self.random.choices(filler_names, weights=filler_weights)[0]))
+        for _ in range(remaining - trap_count - filler_only):
             pool.append(self.create_item(self.get_filler_item_name()))
         self.multiworld.itempool += pool
 
@@ -309,6 +340,12 @@ class TarkovWorld(World):
                 Requirement(clauses=frozenset({frozenset({e["map"]})})))
         for k in self.kill_checks:
             self.get_location(k["name"]).access_rule = self._rule(kill_requirement(k))
+        loot_rules: Dict[Requirement, Callable[[CollectionState], bool]] = {}
+        for r in self.loot_checks:
+            req = loot_requirement(r)
+            if req not in loot_rules:
+                loot_rules[req] = self._rule(req)
+            self.get_location(r["name"]).access_rule = loot_rules[req]
         for b in self.boss_checks:
             self.get_location(b["name"]).access_rule = self._rule(boss_requirement(b))
 
@@ -340,6 +377,7 @@ class TarkovWorld(World):
             "extracts_per_map": self.options.extracts_per_map.value,
             "kill_milestones": self.options.kill_milestones.current_key,
             "boss_checks": bool(self.options.boss_checks.value),
+            "lootsanity": sorted(self.options.lootsanity.value),
             "lock_flea_market": bool(self.options.lock_flea_market.value),
             "death_link": bool(self.options.death_link.value),
             "starting_map": self.start_map,
