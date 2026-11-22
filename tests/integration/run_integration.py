@@ -10,6 +10,9 @@ promises. Run it from anywhere:
     AP_PYTHON=<python with Archipelago's requirements and websockets> python run_integration.py
 
 It deletes the SPT profiles and the mod's state in SPT_DIR, so use a throwaway SPT install.
+
+Optional: AP_PORT (default 38281) when another Archipelago server already uses that port on this machine.
+Works on Linux and on Windows; on Windows the .sh helpers run in Git Bash (INTEGRATION_BASH to point elsewhere).
 """
 from __future__ import annotations
 
@@ -22,13 +25,19 @@ import tempfile
 import time
 import traceback
 
+if os.name == "nt" and not sys.flags.utf8_mode:
+    # SPT's files are UTF-8; Windows' default code page can't read them. Re-run in UTF-8 mode.
+    sys.exit(subprocess.call([sys.executable, "-X", "utf8", *sys.argv]))
+
 sys.path.insert(0, os.path.dirname(__file__))
-from aptools import MultiServer, Watcher, generate, patch_multidata  # noqa: E402
+from aptools import AP_PORT, MultiServer, Watcher, generate, patch_multidata  # noqa: E402
 from sptclient import BOT_ID, SYSTEM_DIALOG, SptClient  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SPT = os.environ.get("SPT_DIR") or sys.exit("set SPT_DIR to a throwaway SPT 4.1.6 server folder (the SPT_Runtime folder)")
-BIN = os.path.dirname(os.path.abspath(__file__))  # spt-start.sh / spt-stop.sh
+BIN = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")  # spt-start.sh / spt-stop.sh
+# On Windows the .sh helpers run in Git Bash (never WSL's bash.exe, which is often first on PATH).
+BASH = os.environ.get("INTEGRATION_BASH", r"C:\Program Files\Git\bin\bash.exe") if os.name == "nt" else None
 WORK = os.environ.get("WORK_DIR", os.path.join(tempfile.gettempdir(), "archipelago-tarkov-integration"))
 MOD_DIR = os.path.join(SPT, "user", "mods", "ArchipelagoTarkov")
 DATA = json.load(open(os.path.join(ROOT, "apworld", "tarkov", "data", "tarkov_data.json")))
@@ -125,12 +134,14 @@ def step(name):
 
 
 def sh(cmd):
+    if BASH:
+        return subprocess.run([BASH, "-c", cmd], capture_output=True, text=True)
     return subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
 
 def spt_restart(log):
     sh(f"{BIN}/spt-stop.sh")
-    out = sh(f"{BIN}/spt-start.sh {log}").stdout.strip()
+    out = sh(f"{BIN}/spt-start.sh {log.replace(os.sep, '/')}").stdout.strip()
     if "started" not in out:
         raise RuntimeError(f"SPT did not start ({out}):\n" + open(log).read()[-3000:])
 
@@ -229,7 +240,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
     @step("wrong slot name is refused with a clear message")
     def _():
         n = c.bot_ids()
-        c.say("connect 127.0.0.1:38281 Nobody")
+        c.say(f"connect 127.0.0.1:{AP_PORT} Nobody")
         c.wait_for_bot("refused the connection", start_count=n, timeout=40)
         c.wait_for_bot("slot name", start_count=n, timeout=5)
     _()
@@ -237,7 +248,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
     @step("connect links the profile and reports progress")
     def _():
         n = c.bot_ids()
-        c.say("connect 127.0.0.1:38281 Runner")
+        c.say(f"connect 127.0.0.1:{AP_PORT} Runner")
         c.wait_for_bot("Connected to Archipelago as Runner", start_count=n, timeout=40)
         c.wait_for_bot("Restart the game once", start_count=n, timeout=10)
     _()
@@ -668,7 +679,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         c2.create_character("Second")
         c2.start_game()
         n = c2.bot_ids()
-        c2.say("connect 127.0.0.1:38281 Buddy")
+        c2.say(f"connect 127.0.0.1:{AP_PORT} Buddy")
         c2.wait_for_bot("Connected to Archipelago as Buddy", start_count=n, timeout=40)
         # pretend this profile belonged to another seed
         state_path = os.path.join(MOD_DIR, "profiles", f"{c2.session}.json")
@@ -712,7 +723,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
     @step("a profile linked to one slot refuses another slot name")
     def _():
         n = c.bot_ids()
-        c.say("connect 127.0.0.1:38281 Buddy")
+        c.say(f"connect 127.0.0.1:{AP_PORT} Buddy")
         t = c.wait_for_bot("is linked to the slot", start_count=n, timeout=15)
         assert "Runner" in t, t
         c.say("status")
@@ -725,7 +736,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         c.say("connect localhost:99999 Runner")
         c.wait_for_bot("port", start_count=n, timeout=15)
         c.say("status")
-        t = c.wait_for_bot("Slot Runner @ 127.0.0.1:38281", start_count=n, timeout=15)
+        t = c.wait_for_bot(f"Slot Runner @ 127.0.0.1:{AP_PORT}", start_count=n, timeout=15)
         assert "connected" in t, t
     _()
 
@@ -752,7 +763,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         k.start_game()
         stash_before = len(k.pmc()["Inventory"]["items"])
         n = k.bot_ids()
-        k.say("connect 127.0.0.1:38281 Kitted")
+        k.say(f"connect 127.0.0.1:{AP_PORT} Kitted")
         k.wait_for_bot("Connected to Archipelago as Kitted", start_count=n, timeout=40)
         k.wait_for_bot("starting stash and gear are replaced", start_count=n, timeout=10)
         # the game restarts and loads the profile: that is when the stash is replaced
@@ -803,7 +814,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
             return len([i for i in inv["items"] if i.get("parentId") == inv["stash"]])
         before = stash_count()
         n = k.bot_ids()
-        k.say("connect 127.0.0.1:38281 Kitted2")
+        k.say(f"connect 127.0.0.1:{AP_PORT} Kitted2")
         k.wait_for_bot("starting stash and gear are replaced", start_count=n, timeout=40)
         start = k.raid_start("Sandbox")
         k.wait_for_bot("so your stash is kept", start_count=n, timeout=10)
