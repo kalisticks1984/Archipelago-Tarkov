@@ -54,6 +54,17 @@ for _h in DATA["hideout"]:
     LOC_IDS[_h["name"]] = _h["location_id"]
 for _e in DATA["extracts"]:
     LOC_IDS[_e["name"]] = _e["location_id"]
+for _k in DATA["kills"] + DATA["bosses"]:
+    LOC_IDS[_k["name"]] = _k["location_id"]
+
+_victim_seq = [0]
+
+
+def victim(side="Savage", role="assault"):
+    """One entry of the client's raid kill list, with a unique bot profile id."""
+    _victim_seq[0] += 1
+    return {"ProfileId": f"{0xA9000000 + _victim_seq[0]:024x}", "Name": f"Bot{_victim_seq[0]}", "Side": side,
+            "Role": role, "Time": "00:05:00", "Level": 10, "BodyPart": "Head", "Weapon": "", "Distance": 20.0}
 
 TRADERS = {t["key"]: t["id"] for t in DATA["traders"]}
 _TEMPLATES = None
@@ -497,6 +508,40 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         time.sleep(8)
         assert LOC_IDS["Woods - Extraction 1"] not in watcher.checked
         c.wait_for_bot("is locked in your Archipelago game", timeout=5)
+    _()
+
+    @step("kills and boss kills send checks; a transit leg's kills are not counted twice")
+    def _():
+        before = dict(state().get("killCounts") or {})
+        leg1 = [victim() for _ in range(5)] + [victim(role="bossBully"), victim(side="Usec", role="pmcUSEC")]
+        start = c.raid_start("bigmap")
+        c.raid_end(start["serverId"], "Transit", exit_name="Customs_Transit", victims=leg1)
+        # The next leg reports the first leg's kills again (worst case) plus one more.
+        start = c.raid_start("bigmap")
+        c.raid_end(start["serverId"], "Survived", exit_name="Smuggler's Boat", victims=leg1 + [victim()])
+        for name in ("Kills - 5 Scavs", "Kills - 1 PMCs", "Boss - Reshala"):
+            watcher.wait_checked(LOC_IDS[name], timeout=30)
+        # SPT 4.1 ends a raid asynchronously: the state is written once the mod has handled the final raid end.
+        st = wait(lambda: (lambda s: s if not s.get("raidVictimsCounted")
+                           and s.get("killCounts", {}).get("scav", 0) > before.get("scav", 0) else None)(state()),
+                  what="raid end saved")
+        assert st["killCounts"].get("scav", 0) - before.get("scav", 0) == 7, st["killCounts"]  # 6 Scavs + Reshala
+        assert st["killCounts"].get("pmc", 0) - before.get("pmc", 0) == 1, st["killCounts"]
+        assert "reshala" in st["bossesKilled"], st["bossesKilled"]
+        assert LOC_IDS["Kills - 10 Scavs"] not in watcher.checked
+    _()
+
+    @step("kills on a locked map do not count")
+    def _():
+        before = dict(state()["killCounts"])
+        start = c.raid_start("Woods")
+        c.raid_end(start["serverId"], "Survived", exit_name="UN Roadblock",
+                   victims=[victim() for _ in range(5)] + [victim(role="bossKojaniy")])
+        time.sleep(8)
+        st = state()
+        assert st["killCounts"] == before, (before, st["killCounts"])
+        assert "shturman" not in st["bossesKilled"]
+        assert LOC_IDS["Boss - Shturman"] not in watcher.checked
     _()
 
     @step("a death in raid sends DeathLink to the multiworld")

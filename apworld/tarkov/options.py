@@ -8,11 +8,14 @@ class Goal(Choice):
 
     quest_count: complete a number of quests that are checks (see Goal Quest Count).
     collector: complete Fence's "Collector" quest (the Kappa container).
-    all_extracts: survive and extract at least once from every map."""
+    all_extracts: survive and extract at least once from every map.
+    bosses: kill every boss at least once (Reshala, Killa, Shturman, Glukhar, Sanitar, Tagilla, Kaban, Kollontay,
+    Zryachiy, Partisan and the three Goons)."""
     display_name = "Goal"
     option_quest_count = 0
     option_collector = 1
     option_all_extracts = 2
+    option_bosses = 3
     default = 0
 
 
@@ -86,6 +89,30 @@ class ExtractsPerMap(Range):
     default = 1
 
 
+class KillMilestones(Choice):
+    """Checks for reaching cumulative kill totals. Kills in PMC and Scav raids both count, on unlocked maps.
+    Scavs are any Scav-side AI (including bosses, Raiders and Rogues, like the game's own quest counters);
+    PMCs are USEC and BEAR.
+
+    off: no kill checks.
+    short: 5 to 50 Scav kills and 1 to 25 PMC kills (8 checks).
+    long: 5 to 300 Scav kills and 1 to 100 PMC kills (17 checks)."""
+    display_name = "Kill Milestones"
+    option_off = 0
+    option_short = 1
+    option_long = 2
+    default = 1
+
+
+SHORT_KILL_LIMITS = {"scav": 50, "pmc": 25}
+
+
+class BossChecks(DefaultOnToggle):
+    """Killing each boss for the first time is a check (13 checks: the Goons count as three).
+    A boss is in logic once you can raid any map it spawns on; spawns are random, so some take patience."""
+    display_name = "Boss Checks"
+
+
 class LockFleaMarket(DefaultOnToggle):
     """The Flea Market stays banned until you find "Flea Market Access"."""
     display_name = "Lock Flea Market"
@@ -156,6 +183,8 @@ class TarkovOptions(PerGameCommonOptions):
     max_quest_level: MaxQuestLevel
     hideout_checks: HideoutChecks
     extracts_per_map: ExtractsPerMap
+    kill_milestones: KillMilestones
+    boss_checks: BossChecks
     lock_flea_market: LockFleaMarket
     level_pacing: LevelPacing
     trap_percentage: TrapPercentage

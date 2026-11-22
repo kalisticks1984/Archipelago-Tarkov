@@ -47,6 +47,13 @@ public sealed class ProfileState
     // Checks
     [JsonPropertyName("checked")] public HashSet<long> Checked { get; set; } = new();
     [JsonPropertyName("extractCounts")] public Dictionary<string, int> ExtractCounts { get; set; } = new();
+    /// <summary>Kills counted for the milestones, by target ("scav", "pmc"), since this profile joined the game.</summary>
+    [JsonPropertyName("killCounts")] public Dictionary<string, int> KillCounts { get; set; } = new();
+    /// <summary>Keys of the bosses killed at least once.</summary>
+    [JsonPropertyName("bossesKilled")] public HashSet<string> BossesKilled { get; set; } = new();
+    /// <summary>Victims already counted in the current raid. A raid with transits ends once per map, so the same
+    /// victim may be reported again; cleared when the raid really ends.</summary>
+    [JsonPropertyName("raidVictimsCounted")] public HashSet<string> RaidVictimsCounted { get; set; } = new();
     [JsonPropertyName("goalSent")] public bool GoalSent { get; set; }
     [JsonPropertyName("collectorWarned")] public bool CollectorWarned { get; set; }
 
@@ -143,6 +150,9 @@ public sealed class ProfileState
         Deferred.Clear();
         Checked.Clear();
         ExtractCounts.Clear();
+        KillCounts.Clear();
+        BossesKilled.Clear();
+        RaidVictimsCounted.Clear();
         GoalSent = false;
         AutoConnect = false;
     }

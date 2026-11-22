@@ -19,6 +19,8 @@ class TestSmallGame(TarkovTestBase):
         "quest_traders": ["Prapor", "Therapist", "Skier"],
         "hideout_checks": False,
         "extracts_per_map": 0,
+        "kill_milestones": "off",
+        "boss_checks": False,
         "lock_flea_market": False,
         "trap_percentage": 50,
     }

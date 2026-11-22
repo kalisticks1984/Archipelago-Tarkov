@@ -112,7 +112,7 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 
 | Option | Default | What it does |
 |---|---|---|
-| `goal` | `quest_count` | What finishes your game: `quest_count` (complete a number of check quests), `collector` (Fence's *Collector*, the Kappa quest), or `all_extracts` (extract once from every map) |
+| `goal` | `quest_count` | What finishes your game: `quest_count` (complete a number of check quests), `collector` (Fence's *Collector*, the Kappa quest), `all_extracts` (extract once from every map), or `bosses` (kill every boss once) |
 | `goal_quest_count` | `60` | How many check quests the `quest_count` goal needs (5–372) |
 | `starting_map` | `ground_zero` | The map you start with. Every other map is an item. The Lab can't be the starting map |
 | `starting_traders` | `prapor_and_therapist` | The traders you start with: Prapor + Therapist, two random ones, or one random one |
@@ -120,6 +120,8 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 | `max_quest_level` | `79` | Quests that need a higher player level than this aren't checks. Lower = shorter game |
 | `hideout_checks` | `true` | Each hideout area level you build is a check |
 | `extracts_per_map` | `1` | How many successful PMC extractions on each map are checks (0–5) |
+| `kill_milestones` | `short` | Checks for total kills, in PMC and Scav raids on unlocked maps: `off`, `short` (5–50 Scavs, 1–25 PMCs) or `long` (5–300 Scavs, 1–100 PMCs) |
+| `boss_checks` | `true` | The first kill of each boss is a check (13: the Goons count as three) |
 | `lock_flea_market` | `true` | The Flea Market is closed until you find *Flea Market Access* |
 | `level_pacing` | `normal` | How many maps the logic expects you to own before it asks for higher-level quests: `relaxed`, `normal` or `fast` |
 | `trap_percentage` | `10` | Percentage of filler items replaced by traps |

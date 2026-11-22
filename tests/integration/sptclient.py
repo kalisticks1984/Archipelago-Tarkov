@@ -152,12 +152,15 @@ class SptClient:
         })
 
     def raid_end(self, server_id: str, result: str, exit_name: Optional[str] = None,
-                 killer: Optional[str] = None, profile: Optional[Dict[str, Any]] = None) -> Any:
+                 killer: Optional[str] = None, profile: Optional[Dict[str, Any]] = None,
+                 victims: Optional[List[Dict[str, Any]]] = None) -> Any:
         """End a raid. profile is the client's copy of the PMC/Scav at raid end; by default a fresh one
-        (as if the client had just reloaded it). Pass an older copy to act like a client that did not."""
+        (as if the client had just reloaded it). Pass an older copy to act like a client that did not.
+        victims is this raid's kill list (the client only reports the current raid's kills)."""
         if profile is None:
             profile = self.pmc()
         stats = profile.setdefault("Stats", {}).setdefault("Eft", {})
+        stats["Victims"] = victims or []
         if killer:
             stats["Aggressor"] = {"Name": killer, "Side": "Savage", "Role": "assault"}
         return self.call("/client/match/local/end", {

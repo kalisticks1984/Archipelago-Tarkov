@@ -29,6 +29,37 @@ LOCATION_BASE = 76_400_000
 QUEST_OFFSET = 0
 HIDEOUT_OFFSET = 10_000
 EXTRACT_OFFSET = 20_000
+KILL_OFFSET = 30_000
+BOSS_OFFSET = 40_000
+
+# Cumulative kill totals that are checks. "level" is the player level the logic expects before the total is
+# reasonable (the APWorld turns it into a number of unlocked maps, like quest levels). Never reorder or remove
+# entries: the position in each list is part of the location id. Add new tiers at the end.
+KILL_MILESTONES = OrderedDict([
+    ("scav", ("Scavs", [5, 10, 25, 50, 75, 100, 150, 200, 250, 300])),
+    ("pmc", ("PMCs", [1, 5, 10, 25, 50, 75, 100])),
+])
+KILL_MILESTONE_LEVELS = {"scav": 5, "pmc": 2}  # level = total // divisor, capped at 60
+KILL_SLOTS_PER_TARGET = 100  # id = KILL_OFFSET + target index * 100 + tier index
+
+# Boss role (the bot type in SPT's database) -> (key, display name). The maps each boss can spawn on are read
+# from the locations' BossLocationSpawn tables. Never reorder: the position is part of the location id.
+BOSSES = OrderedDict([
+    ("bossBully", ("reshala", "Reshala")),
+    ("bossKilla", ("killa", "Killa")),
+    ("bossKojaniy", ("shturman", "Shturman")),
+    ("bossGluhar", ("glukhar", "Glukhar")),
+    ("bossSanitar", ("sanitar", "Sanitar")),
+    ("bossTagilla", ("tagilla", "Tagilla")),
+    ("bossBoar", ("kaban", "Kaban")),
+    ("bossKolontay", ("kollontay", "Kollontay")),
+    ("bossZryachiy", ("zryachiy", "Zryachiy")),
+    ("bossPartisan", ("partisan", "Partisan")),
+    ("bossKnight", ("knight", "Knight")),
+    ("followerBigPipe", ("bigpipe", "Big Pipe")),
+    ("followerBirdEye", ("birdeye", "Birdeye")),
+])
+BOSS_LEVEL = 10
 
 # Map key -> (display name, location ids used in quest data / raid server ids, text hints)
 MAPS = OrderedDict([
@@ -515,6 +546,52 @@ def main(spt_data_dir: str, out_path: str) -> None:
             e_index += 1
 
     # ----------------------------------------------------------------------------------
+    # Kill milestones (cumulative totals across PMC and Scav raids)
+    # ----------------------------------------------------------------------------------
+    kill_records = []
+    for t_index, (target, (display, totals)) in enumerate(KILL_MILESTONES.items()):
+        for tier, total in enumerate(totals):
+            kill_records.append({
+                "target": target,
+                "count": total,
+                "name": f"Kills - {total} {display}",
+                "level": min(60, total // KILL_MILESTONE_LEVELS[target]),
+                "location_id": LOCATION_BASE + KILL_OFFSET + t_index * KILL_SLOTS_PER_TARGET + tier,
+            })
+
+    # ----------------------------------------------------------------------------------
+    # Bosses (first kill of each). Spawn maps come from each location's BossLocationSpawn.
+    # ----------------------------------------------------------------------------------
+    boss_maps = {role: set() for role in BOSSES}
+    for folder in os.listdir(os.path.join(db, "locations")):
+        base_path = os.path.join(db, "locations", folder, "base.json")
+        map_key = location_name_to_key.get(folder.lower())
+        if map_key is None or not os.path.exists(base_path):
+            continue
+        for spawn in load(base_path).get("BossLocationSpawn", []):
+            if (spawn.get("BossChance") or 0) <= 0:
+                continue
+            roles = [spawn.get("BossName")] + [s.get("BossEscortType") for s in spawn.get("Supports") or []]
+            for role in roles:
+                if role in boss_maps:
+                    boss_maps[role].add(map_key)
+
+    boss_records = []
+    for b_index, (role, (key, display)) in enumerate(BOSSES.items()):
+        maps = [m for m in MAPS if m in boss_maps[role]]
+        if not maps:
+            print(f"   ! boss {display} ({role}) spawns on no playable map; left out")
+            continue
+        boss_records.append({
+            "key": key,
+            "role": role,
+            "name": f"Boss - {display}",
+            "maps": maps,
+            "level": BOSS_LEVEL,
+            "location_id": LOCATION_BASE + BOSS_OFFSET + b_index,
+        })
+
+    # ----------------------------------------------------------------------------------
     # Items
     # ----------------------------------------------------------------------------------
     item_records = []
@@ -563,6 +640,8 @@ def main(spt_data_dir: str, out_path: str) -> None:
     lines += [f"loc:{q['location_id']}:{q['location_name']}" for q in quest_records if q["check"]]
     lines += [f"loc:{h['location_id']}:{h['name']}" for h in hideout_records]
     lines += [f"loc:{e['location_id']}:{e['name']}" for e in extract_records]
+    lines += [f"loc:{k['location_id']}:{k['name']}" for k in kill_records]
+    lines += [f"loc:{b['location_id']}:{b['name']}" for b in boss_records]
     data_hash = hashlib.sha1("\n".join(sorted(lines)).encode("utf-8")).hexdigest()
 
     data = OrderedDict()
@@ -585,6 +664,8 @@ def main(spt_data_dir: str, out_path: str) -> None:
     data["quests"] = quest_records
     data["hideout"] = hideout_records
     data["extracts"] = extract_records
+    data["kills"] = kill_records
+    data["bosses"] = boss_records
     data["items"] = item_records
 
     with open(out_path, "w", encoding="utf-8") as f:
@@ -594,7 +675,10 @@ def main(spt_data_dir: str, out_path: str) -> None:
     checks = [r for r in quest_records if r["check"]]
     print(f"quests: {len(quest_records)} total, {len(checks)} checks, "
           f"{sum(1 for r in quest_records if not r['possible'])} impossible")
-    print(f"hideout checks: {len(hideout_records)}; extract slots: {len(extract_records)}; items: {len(item_records)}")
+    print(f"hideout checks: {len(hideout_records)}; extract slots: {len(extract_records)}; "
+          f"kill milestones: {len(kill_records)}; bosses: {len(boss_records)}; items: {len(item_records)}")
+    for b in boss_records:
+        print(f"   boss {b['name']}: {', '.join(b['maps'])}")
     print(f"objectives with unknown map (treated as needing every map): {len(unknown_objectives)}")
     for name, text in unknown_objectives:
         print(f"   ? {name}: {text}")

@@ -18,6 +18,7 @@ class TestData(unittest.TestCase):
         data = load_data()
         names = [q["location_name"] for q in data["quests"] if q["check"]]
         names += [h["name"] for h in data["hideout"]] + [e["name"] for e in data["extracts"]]
+        names += [k["name"] for k in data["kills"]] + [b["name"] for b in data["bosses"]]
         self.assertEqual(len(names), len(set(names)))
 
     def test_items_and_locations_do_not_overlap(self) -> None:

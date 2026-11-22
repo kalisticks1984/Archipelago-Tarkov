@@ -4,7 +4,7 @@
   "eft_build": "0.16.9.5.40743",
   "item_base": 76310000,
   "location_base": 76400000,
-  "data_hash": "21a1b244aaad8b8b6ad241572e12e00ef05e864b"
+  "data_hash": "d881a825de0b6bbdfd99c4a9361555f13dec812e"
  },
  "maps": [
   {
@@ -18373,6 +18373,271 @@
    "count": 5,
    "name": "The Lab - Extraction 5",
    "location_id": 76420049
+  }
+ ],
+ "kills": [
+  {
+   "target": "scav",
+   "count": 5,
+   "name": "Kills - 5 Scavs",
+   "level": 1,
+   "location_id": 76430000
+  },
+  {
+   "target": "scav",
+   "count": 10,
+   "name": "Kills - 10 Scavs",
+   "level": 2,
+   "location_id": 76430001
+  },
+  {
+   "target": "scav",
+   "count": 25,
+   "name": "Kills - 25 Scavs",
+   "level": 5,
+   "location_id": 76430002
+  },
+  {
+   "target": "scav",
+   "count": 50,
+   "name": "Kills - 50 Scavs",
+   "level": 10,
+   "location_id": 76430003
+  },
+  {
+   "target": "scav",
+   "count": 75,
+   "name": "Kills - 75 Scavs",
+   "level": 15,
+   "location_id": 76430004
+  },
+  {
+   "target": "scav",
+   "count": 100,
+   "name": "Kills - 100 Scavs",
+   "level": 20,
+   "location_id": 76430005
+  },
+  {
+   "target": "scav",
+   "count": 150,
+   "name": "Kills - 150 Scavs",
+   "level": 30,
+   "location_id": 76430006
+  },
+  {
+   "target": "scav",
+   "count": 200,
+   "name": "Kills - 200 Scavs",
+   "level": 40,
+   "location_id": 76430007
+  },
+  {
+   "target": "scav",
+   "count": 250,
+   "name": "Kills - 250 Scavs",
+   "level": 50,
+   "location_id": 76430008
+  },
+  {
+   "target": "scav",
+   "count": 300,
+   "name": "Kills - 300 Scavs",
+   "level": 60,
+   "location_id": 76430009
+  },
+  {
+   "target": "pmc",
+   "count": 1,
+   "name": "Kills - 1 PMCs",
+   "level": 0,
+   "location_id": 76430100
+  },
+  {
+   "target": "pmc",
+   "count": 5,
+   "name": "Kills - 5 PMCs",
+   "level": 2,
+   "location_id": 76430101
+  },
+  {
+   "target": "pmc",
+   "count": 10,
+   "name": "Kills - 10 PMCs",
+   "level": 5,
+   "location_id": 76430102
+  },
+  {
+   "target": "pmc",
+   "count": 25,
+   "name": "Kills - 25 PMCs",
+   "level": 12,
+   "location_id": 76430103
+  },
+  {
+   "target": "pmc",
+   "count": 50,
+   "name": "Kills - 50 PMCs",
+   "level": 25,
+   "location_id": 76430104
+  },
+  {
+   "target": "pmc",
+   "count": 75,
+   "name": "Kills - 75 PMCs",
+   "level": 37,
+   "location_id": 76430105
+  },
+  {
+   "target": "pmc",
+   "count": 100,
+   "name": "Kills - 100 PMCs",
+   "level": 50,
+   "location_id": 76430106
+  }
+ ],
+ "bosses": [
+  {
+   "key": "reshala",
+   "role": "bossBully",
+   "name": "Boss - Reshala",
+   "maps": [
+    "customs"
+   ],
+   "level": 10,
+   "location_id": 76440000
+  },
+  {
+   "key": "killa",
+   "role": "bossKilla",
+   "name": "Boss - Killa",
+   "maps": [
+    "interchange"
+   ],
+   "level": 10,
+   "location_id": 76440001
+  },
+  {
+   "key": "shturman",
+   "role": "bossKojaniy",
+   "name": "Boss - Shturman",
+   "maps": [
+    "woods"
+   ],
+   "level": 10,
+   "location_id": 76440002
+  },
+  {
+   "key": "glukhar",
+   "role": "bossGluhar",
+   "name": "Boss - Glukhar",
+   "maps": [
+    "reserve"
+   ],
+   "level": 10,
+   "location_id": 76440003
+  },
+  {
+   "key": "sanitar",
+   "role": "bossSanitar",
+   "name": "Boss - Sanitar",
+   "maps": [
+    "shoreline"
+   ],
+   "level": 10,
+   "location_id": 76440004
+  },
+  {
+   "key": "tagilla",
+   "role": "bossTagilla",
+   "name": "Boss - Tagilla",
+   "maps": [
+    "factory"
+   ],
+   "level": 10,
+   "location_id": 76440005
+  },
+  {
+   "key": "kaban",
+   "role": "bossBoar",
+   "name": "Boss - Kaban",
+   "maps": [
+    "streets"
+   ],
+   "level": 10,
+   "location_id": 76440006
+  },
+  {
+   "key": "kollontay",
+   "role": "bossKolontay",
+   "name": "Boss - Kollontay",
+   "maps": [
+    "streets"
+   ],
+   "level": 10,
+   "location_id": 76440007
+  },
+  {
+   "key": "zryachiy",
+   "role": "bossZryachiy",
+   "name": "Boss - Zryachiy",
+   "maps": [
+    "lighthouse"
+   ],
+   "level": 10,
+   "location_id": 76440008
+  },
+  {
+   "key": "partisan",
+   "role": "bossPartisan",
+   "name": "Boss - Partisan",
+   "maps": [
+    "customs",
+    "woods",
+    "shoreline",
+    "lighthouse"
+   ],
+   "level": 10,
+   "location_id": 76440009
+  },
+  {
+   "key": "knight",
+   "role": "bossKnight",
+   "name": "Boss - Knight",
+   "maps": [
+    "customs",
+    "woods",
+    "shoreline",
+    "lighthouse"
+   ],
+   "level": 10,
+   "location_id": 76440010
+  },
+  {
+   "key": "bigpipe",
+   "role": "followerBigPipe",
+   "name": "Boss - Big Pipe",
+   "maps": [
+    "customs",
+    "woods",
+    "shoreline",
+    "lighthouse"
+   ],
+   "level": 10,
+   "location_id": 76440011
+  },
+  {
+   "key": "birdeye",
+   "role": "followerBirdEye",
+   "name": "Boss - Birdeye",
+   "maps": [
+    "customs",
+    "woods",
+    "shoreline",
+    "lighthouse"
+   ],
+   "level": 10,
+   "location_id": 76440012
   }
  ],
  "items": [

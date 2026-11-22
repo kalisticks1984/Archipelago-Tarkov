@@ -20,7 +20,7 @@ traders = ["Prapor", "Therapist", "Skier", "Peacekeeper", "Mechanic", "Ragman", 
 
 def random_tarkov(rng):
     return {
-        "goal": rng.choice(["quest_count", "collector", "all_extracts"]),
+        "goal": rng.choice(["quest_count", "collector", "all_extracts", "bosses"]),
         "goal_quest_count": rng.choice([5, 20, 60, 150, 372]),
         "starting_map": rng.choice(["ground_zero", "factory", "customs", "woods", "interchange", "shoreline",
                                     "reserve", "lighthouse", "streets_of_tarkov"]),
@@ -29,6 +29,8 @@ def random_tarkov(rng):
         "max_quest_level": rng.choice([1, 5, 10, 15, 20, 30, 45, 79]),
         "hideout_checks": rng.choice([True, False]),
         "extracts_per_map": rng.randint(0, 5),
+        "kill_milestones": rng.choice(["off", "short", "long"]),
+        "boss_checks": rng.choice([True, False]),
         "lock_flea_market": rng.choice([True, False]),
         "level_pacing": rng.choice(["relaxed", "normal", "fast"]),
         "trap_percentage": rng.choice([0, 10, 50]),

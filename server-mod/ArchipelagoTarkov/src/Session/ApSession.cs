@@ -6,6 +6,7 @@ using ArchipelagoTarkov.Data;
 using ArchipelagoTarkov.Game;
 using ArchipelagoTarkov.State;
 using SPTarkov.Server.Core.Models.Eft.Common;
+using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
 
 namespace ArchipelagoTarkov.Session;
@@ -189,6 +190,7 @@ public sealed class ApSession
         {
             "collector" => _game.QuestCompleted(ProfileId, _data.CollectorQuestId) ? "Collector done" : "complete Fence's Collector quest",
             "all_extracts" => $"extract from every map ({_data.Maps.Count(m => State.ExtractCounts.GetValueOrDefault(m.Key) > 0)}/{_data.Maps.Count})",
+            "bosses" => $"kill every boss ({_data.Bosses.Count(b => State.BossesKilled.Contains(b.Key))}/{_data.Bosses.Count})",
             _ => $"complete {State.SlotInt("goal_quest_count")} quests ({CompletedQuestChecks()} done)",
         };
     }
@@ -229,6 +231,45 @@ public sealed class ApSession
         _game.AddPendingToRaidResult(postRaidProfile, State, isPmc);
     }
 
+    /// <summary>
+    /// Counts the raid's victims towards the kill milestones and boss checks. Called with the victim list the client
+    /// sent at raid end (PMC or Scav raid, any exit status, including each leg of a transit).
+    /// </summary>
+    public void RecordVictims(string? mapKey, IEnumerable<Victim>? victims)
+    {
+        if (!Active || victims is null || mapKey is null || !IsMapUnlocked(mapKey))
+        {
+            return;
+        }
+
+        foreach (var victim in victims)
+        {
+            if (victim is null)
+            {
+                continue;
+            }
+
+            // Bot profile ids are unique per spawn. Fall back to what identifies the kill in the client's list.
+            var id = victim.ProfileId?.ToString() ?? $"{victim.Name}|{victim.Time}|{victim.Role}";
+            if (!State.RaidVictimsCounted.Add(id))
+            {
+                continue;
+            }
+
+            if (KillTargets.ForSide(victim.Side) is { } target)
+            {
+                State.KillCounts[target] = State.KillCounts.GetValueOrDefault(target) + 1;
+            }
+
+            if (victim.Role is { } role && _data.BossesByRole.TryGetValue(role, out var boss) && State.BossesKilled.Add(boss.Key))
+            {
+                Say($"{boss.Name.Replace("Boss - ", "")} killed.");
+            }
+
+            _dirty = true;
+        }
+    }
+
     private DateTime _profileChangesPausedUntil = DateTime.MinValue;
 
     /// <summary>Hold back experience/reputation/trap changes for a while (the client is reading the profile).</summary>
@@ -247,6 +288,12 @@ public sealed class ApSession
         }
 
         InRaid = false;
+        if (State.RaidVictimsCounted.Count > 0)
+        {
+            State.RaidVictimsCounted.Clear();
+            _dirty = true;
+        }
+
         if (!Active)
         {
             return;
@@ -1232,6 +1279,7 @@ public sealed class ApSession
     {
         "collector" => _game.QuestCompleted(ProfileId, _data.CollectorQuestId),
         "all_extracts" => _data.Maps.All(m => State.ExtractCounts.GetValueOrDefault(m.Key) > 0),
+        "bosses" => _data.Bosses.All(b => State.BossesKilled.Contains(b.Key)),
         _ => CompletedQuestChecks() >= Math.Max(1, State.SlotInt("goal_quest_count", int.MaxValue)),
     };
 

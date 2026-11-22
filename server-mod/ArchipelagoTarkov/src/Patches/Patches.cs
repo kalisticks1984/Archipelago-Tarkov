@@ -268,10 +268,12 @@ public class RaidEndPatch : AbstractPatch
                 return;
             }
 
-            var (_, isPmc) = ParseServerId(manager, __1.ServerId);
+            var (mapKey, isPmc) = ParseServerId(manager, __1.ServerId);
             lock (session)
             {
                 session.BeforeRaidEnd(__1.Results.Profile, isPmc);
+                // Read the victims as the client sent them, before SPT merges the profile.
+                session.RecordVictims(mapKey, __1.Results.Profile.Stats?.Eft?.Victims);
             }
         }
         catch (Exception ex)

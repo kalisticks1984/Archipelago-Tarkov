@@ -15,9 +15,10 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
 - **Locked progression:** the ten maps (Ground Zero to The Lab), the seven main traders (Prapor, Therapist, Skier,
   Peacekeeper, Mechanic, Ragman, Jaeger) and the Flea Market are items. Locked maps disappear from the map screen and
   transits to them are switched off.
-- **432 checks** with the default options: every main-trader quest that can be completed reliably on a fresh
-  profile (364), every hideout area level (58), and one PMC extraction per map (up to five per map: 472 checks).
-- **Goals:** a number of quests, Fence's *Collector* (Kappa), or extracting from every map.
+- **453 checks** with the default options: every main-trader quest that can be completed reliably on a fresh
+  profile (364), every hideout area level (58), one PMC extraction per map (10), Scav and PMC kill totals (8) and the
+  first kill of each boss (13). Up to 502 with five extractions per map and the long kill milestones.
+- **Goals:** a number of quests, Fence's *Collector* (Kappa), extracting from every map, or killing every boss.
 - **Items:** maps, traders, Flea Market access, experience, trader reputation, money, and crates of weapons, armor,
   medicine, ammo, keys, stims, barter goods and provisions. Traps: Fence Grudge, Exhaustion, Scav Cooldown.
 - **Random starting kit (optional):** a weapon with matching ammo and magazines, armor, rig, backpack, meds, food and

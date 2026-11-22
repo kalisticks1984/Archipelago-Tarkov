@@ -13,7 +13,7 @@ from .items import (FILLER_WEIGHTS, FLEA_ITEM, GAME_NAME, MAP_ITEMS, TRADER_ITEM
                     item_name_groups, item_name_to_id, item_table)
 from .logic import (ALL_MAPS, FLEA_MIN_LEVEL, LAB_KEYCARD_SOURCES, WEAPON_PARTS_TRADERS, Requirement, RequirementBuilder,
                     maps_needed_for_level)
-from .options import Goal, StartingMap, StartingTraders, TarkovOptions
+from .options import SHORT_KILL_LIMITS, Goal, KillMilestones, StartingMap, StartingTraders, TarkovOptions
 
 logger = logging.getLogger("Escape from Tarkov")
 
@@ -44,7 +44,19 @@ def _build_location_table() -> Dict[str, int]:
         table[h["name"]] = h["location_id"]
     for e in data["extracts"]:
         table[e["name"]] = e["location_id"]
+    for k in data["kills"]:
+        table[k["name"]] = k["location_id"]
+    for b in data["bosses"]:
+        table[b["name"]] = b["location_id"]
     return table
+
+
+def kill_requirement(kill: dict) -> Requirement:
+    return Requirement(level=kill["level"])
+
+
+def boss_requirement(boss: dict) -> Requirement:
+    return Requirement(clauses=frozenset({frozenset(boss["maps"])}), level=boss["level"])
 
 
 location_table = _build_location_table()
@@ -84,6 +96,8 @@ class TarkovWorld(World):
         "Quests": {q["location_name"] for q in load_data()["quests"] if q["check"]},
         "Hideout": {h["name"] for h in load_data()["hideout"]},
         "Extractions": {e["name"] for e in load_data()["extracts"]},
+        "Kills": {k["name"] for k in load_data()["kills"]},
+        "Bosses": {b["name"] for b in load_data()["bosses"]},
     }
 
     def __init__(self, multiworld, player):
@@ -94,6 +108,8 @@ class TarkovWorld(World):
         self.quest_checks: List[dict] = []
         self.hideout_checks: List[dict] = []
         self.extract_checks: List[dict] = []
+        self.kill_checks: List[dict] = []
+        self.boss_checks: List[dict] = []
         self.goal_quest_count = 0
 
     # ------------------------------------------------------------------ generation steps
@@ -122,6 +138,14 @@ class TarkovWorld(World):
 
         per_map = self.options.extracts_per_map.value
         self.extract_checks = [e for e in data["extracts"] if e["count"] <= per_map]
+
+        kills = self.options.kill_milestones.value
+        if kills == KillMilestones.option_long:
+            self.kill_checks = list(data["kills"])
+        elif kills == KillMilestones.option_short:
+            self.kill_checks = [k for k in data["kills"] if k["count"] <= SHORT_KILL_LIMITS[k["target"]]]
+        if self.options.boss_checks:
+            self.boss_checks = list(data["bosses"])
 
         if self.options.goal == Goal.option_quest_count:
             if not self.quest_checks:
@@ -160,6 +184,8 @@ class TarkovWorld(World):
         count = sum(1 for q in self.quest_checks if ok(self.requirements.quest(q["id"])))
         count += sum(1 for h in self.hideout_checks if ok(self.requirements.hideout_level(h["area"], h["level"])))
         count += sum(1 for e in self.extract_checks if e["map"] in maps)
+        count += sum(1 for k in self.kill_checks if ok(kill_requirement(k)))
+        count += sum(1 for b in self.boss_checks if ok(boss_requirement(b)))
         return count
 
     def create_regions(self) -> None:
@@ -174,6 +200,10 @@ class TarkovWorld(World):
             tarkov.locations.append(TarkovLocation(self.player, h["name"], h["location_id"], tarkov))
         for e in self.extract_checks:
             tarkov.locations.append(TarkovLocation(self.player, e["name"], e["location_id"], tarkov))
+        for k in self.kill_checks:
+            tarkov.locations.append(TarkovLocation(self.player, k["name"], k["location_id"], tarkov))
+        for b in self.boss_checks:
+            tarkov.locations.append(TarkovLocation(self.player, b["name"], b["location_id"], tarkov))
 
         # Goal events
         if self.options.goal == Goal.option_quest_count:
@@ -212,7 +242,8 @@ class TarkovWorld(World):
         if self.options.lock_flea_market:
             pool.append(self.create_item(FLEA_ITEM))
 
-        total_locations = len(self.quest_checks) + len(self.hideout_checks) + len(self.extract_checks)
+        total_locations = (len(self.quest_checks) + len(self.hideout_checks) + len(self.extract_checks)
+                           + len(self.kill_checks) + len(self.boss_checks))
         if len(pool) > total_locations:
             raise OptionError(f"Escape from Tarkov ({self.player_name}): {total_locations} checks are not enough for "
                               f"{len(pool)} required items. Enable more checks.")
@@ -276,6 +307,10 @@ class TarkovWorld(World):
         for e in self.extract_checks:
             self.get_location(e["name"]).access_rule = self._rule(
                 Requirement(clauses=frozenset({frozenset({e["map"]})})))
+        for k in self.kill_checks:
+            self.get_location(k["name"]).access_rule = self._rule(kill_requirement(k))
+        for b in self.boss_checks:
+            self.get_location(b["name"]).access_rule = self._rule(boss_requirement(b))
 
         victory = self.get_location("Escape from Tarkov")
         goal = self.options.goal.value
@@ -284,6 +319,9 @@ class TarkovWorld(World):
             victory.access_rule = lambda state: state.has("Quest Completed", player, needed)
         elif goal == Goal.option_collector:
             victory.access_rule = self._rule(self.requirements.quest(load_data()["collector_quest_id"]))
+        elif goal == Goal.option_bosses:
+            boss_rules = [self._rule(boss_requirement(b)) for b in load_data()["bosses"]]
+            victory.access_rule = lambda state: all(rule(state) for rule in boss_rules)
         else:
             every_map = [MAP_ITEMS[m] for m in ALL_MAPS]
             lab_rule = self._rule(Requirement(clauses=frozenset({frozenset({"labs"})})))
@@ -300,6 +338,8 @@ class TarkovWorld(World):
             "goal_quest_count": self.goal_quest_count,
             "collector_quest_id": load_data()["collector_quest_id"],
             "extracts_per_map": self.options.extracts_per_map.value,
+            "kill_milestones": self.options.kill_milestones.current_key,
+            "boss_checks": bool(self.options.boss_checks.value),
             "lock_flea_market": bool(self.options.lock_flea_market.value),
             "death_link": bool(self.options.death_link.value),
             "starting_map": self.start_map,

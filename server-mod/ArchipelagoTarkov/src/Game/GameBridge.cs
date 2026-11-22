@@ -273,6 +273,22 @@ public class GameBridge(
                 }
             }
         }
+
+        foreach (var kill in data.Kills)
+        {
+            if (state.KillCounts.GetValueOrDefault(kill.Target) >= kill.Count)
+            {
+                yield return kill.LocationId;
+            }
+        }
+
+        foreach (var boss in data.Bosses)
+        {
+            if (state.BossesKilled.Contains(boss.Key))
+            {
+                yield return boss.LocationId;
+            }
+        }
     }
 
     public QuestStatusEnum? QuestState(string profileId, string questId)

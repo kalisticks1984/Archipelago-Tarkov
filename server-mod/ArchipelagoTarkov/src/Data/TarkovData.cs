@@ -17,7 +17,12 @@ public sealed class TarkovData
     [JsonPropertyName("quests")] public List<QuestDef> Quests { get; set; } = [];
     [JsonPropertyName("hideout")] public List<HideoutDef> Hideout { get; set; } = [];
     [JsonPropertyName("extracts")] public List<ExtractDef> Extracts { get; set; } = [];
+    [JsonPropertyName("kills")] public List<KillDef> Kills { get; set; } = [];
+    [JsonPropertyName("bosses")] public List<BossDef> Bosses { get; set; } = [];
     [JsonPropertyName("items")] public List<ItemDef> Items { get; set; } = [];
+
+    /// <summary>SPT bot role (bossBully, followerBigPipe...) -> boss. Case-insensitive.</summary>
+    [JsonIgnore] public Dictionary<string, BossDef> BossesByRole { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
 
     [JsonIgnore] public Dictionary<long, ItemDef> ItemsById { get; private set; } = new();
     [JsonIgnore] public Dictionary<string, long> QuestLocations { get; private set; } = new();
@@ -70,6 +75,17 @@ public sealed class TarkovData
         {
             ExtractLocations[(e.Map, e.Count)] = e.LocationId;
             LocationNames[e.LocationId] = e.Name;
+        }
+
+        foreach (var k in Kills)
+        {
+            LocationNames[k.LocationId] = k.Name;
+        }
+
+        foreach (var b in Bosses)
+        {
+            BossesByRole[b.Role] = b;
+            LocationNames[b.LocationId] = b.Name;
         }
 
         foreach (var m in Maps)
@@ -141,6 +157,40 @@ public sealed class ExtractDef
     [JsonPropertyName("count")] public int Count { get; set; }
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class KillDef
+{
+    /// <summary>"scav" or "pmc" (see <see cref="KillTargets"/>).</summary>
+    [JsonPropertyName("target")] public string Target { get; set; } = "";
+    [JsonPropertyName("count")] public int Count { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class BossDef
+{
+    [JsonPropertyName("key")] public string Key { get; set; } = "";
+    [JsonPropertyName("role")] public string Role { get; set; } = "";
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("maps")] public List<string> Maps { get; set; } = [];
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+/// <summary>How a raid victim counts towards the kill milestones.</summary>
+public static class KillTargets
+{
+    public const string Scav = "scav";
+    public const string Pmc = "pmc";
+
+    /// <summary>Savage-side AI (Scavs, bosses, Raiders, Rogues, Cultists) count as Scavs, like the game's quest
+    /// counters; USEC and BEAR count as PMCs.</summary>
+    public static string? ForSide(string? side) => side?.ToLowerInvariant() switch
+    {
+        "savage" => Scav,
+        "usec" or "bear" => Pmc,
+        _ => null,
+    };
 }
 
 public sealed class ItemDef

@@ -26,6 +26,9 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
   faction-only quests, branching quests where completing one fails another) are not checks.
 - Building a hideout area level (optional).
 - Surviving and extracting from a map, a number of times per map (optional).
+- Reaching a total number of Scav or PMC kills (optional). Kills in PMC and Scav raids both count, on unlocked maps.
+- Killing each boss for the first time (optional): Reshala, Killa, Shturman, Glukhar, Sanitar, Tagilla, Kaban,
+  Kollontay, Zryachiy, Partisan, and each of the Goons (Knight, Big Pipe, Birdeye).
 
 ## What items can I receive?
 
@@ -48,7 +51,8 @@ a rig, a backpack, meds, food and money), either on top of your normal starting 
 One of:
 - complete a set number of quests that are checks,
 - complete Fence's *Collector* quest (Kappa),
-- extract at least once from every map.
+- extract at least once from every map,
+- kill every boss at least once.
 
 For the Collector goal, take Therapist's *Colleagues - Part 3* before turning in Jaeger's *The Huntsman Path - Sadist*:
 it is only offered while Sadist is in progress. The mod reminds you in game.
