@@ -94,6 +94,10 @@ BOT_USED_BASES = {
 # Stand-in template ids start with this, so the client plugin can recognise them without a list.
 STAND_IN_PREFIX = "a9a9a9"
 
+# Craftsanity: each hideout recipe is a check. Ids from CRAFT_OFFSET, kept on regeneration like lootsanity's.
+CRAFT_OFFSET = 200_000
+CRAFT_MAX = 10_000
+
 # Map key -> (display name, location ids used in quest data / raid server ids, text hints)
 MAPS = OrderedDict([
     ("factory", ("Factory", ["factory4_day", "factory4_night"],
@@ -736,6 +740,78 @@ def main(spt_data_dir: str, out_path: str) -> None:
     loot_records = extract_loot(db, items, locale, location_name_to_key, out_path)
 
     # ----------------------------------------------------------------------------------
+    # Crafts (first completion of each hideout recipe)
+    # ----------------------------------------------------------------------------------
+    present_levels = {(h["area"], h["level"]) for h in hideout_records}
+    quest_ok = {q["id"] for q in quest_records if q["possible"]}
+    previous_crafts = {}
+    if os.path.exists(out_path):
+        try:
+            previous_crafts = {r["recipe"]: r for r in load(out_path).get("crafts", [])}
+        except (OSError, ValueError):
+            previous_crafts = {}
+    used_craft_names = {r["name"] for r in previous_crafts.values()}
+    next_craft_id = max((r["location_id"] for r in previous_crafts.values()),
+                        default=LOCATION_BASE + CRAFT_OFFSET - 1) + 1
+    craft_records = []
+    craft_skipped = {}
+    for recipe in sorted(load(os.path.join(db, "hideout", "production.json"))["recipes"], key=lambda r: r["_id"]):
+        reqs = recipe.get("requirements", [])
+        area_req = next((r for r in reqs if r["type"] == "Area"), None)
+        quest_reqs = [r for r in reqs if r["type"] == "QuestComplete"]
+        quest_req = next((r["questId"] for r in quest_reqs if r.get("questId")), None)
+        reason = None
+        if any(not r.get("questId") for r in quest_reqs):
+            reason = "unnamed quest"  # unlocked by a quest the data doesn't name: logic can't place it
+        elif recipe.get("isCodeProduction"):
+            reason = "code"
+        elif any(r["type"] == "GameVersion" for r in reqs):
+            reason = "edition"
+        elif area_req is None:
+            reason = "no station"
+        elif recipe["areaType"] in EXCLUDED_HIDEOUT_AREAS:
+            reason = "excluded station"
+        elif ((area_req["areaType"], area_req["requiredLevel"]) not in present_levels
+              and area_req["requiredLevel"] > standard_levels.get(area_req["areaType"], 0)):
+            reason = "station level unavailable"
+        elif quest_req and quest_req not in quest_ok:
+            reason = "quest not completable"
+        elif recipe.get("locked") and not quest_req:
+            reason = "locked"
+        elif recipe["endProduct"] not in items:
+            reason = "unknown product"
+        if reason:
+            craft_skipped[reason] = craft_skipped.get(reason, 0) + 1
+            continue
+        old = previous_crafts.get(recipe["_id"])
+        if old:
+            name, location_id = old["name"], old["location_id"]
+        else:
+            product = locale.get(f"{recipe['endProduct']} Name") or items[recipe["endProduct"]].get("_name")
+            station = locale.get(f"hideout_area_{recipe['areaType']}_name") or f"Area {recipe['areaType']}"
+            name = f"Craft - {product} ({station})"
+            n, base_name = 2, name
+            while name in used_craft_names:
+                name = f"{base_name} #{n}"
+                n += 1
+            location_id = next_craft_id
+            next_craft_id += 1
+        used_craft_names.add(name)
+        if location_id >= LOCATION_BASE + CRAFT_OFFSET + CRAFT_MAX:
+            raise SystemExit("craftsanity location id range is full")
+        craft_records.append({
+            "recipe": recipe["_id"],
+            "name": name,
+            "area": area_req["areaType"],
+            "level": area_req["requiredLevel"],
+            "quest": quest_req,
+            "product": recipe["endProduct"],
+            "continuous": bool(recipe.get("continuous")),
+            "location_id": location_id,
+        })
+    craft_records.sort(key=lambda r: r["location_id"])
+
+    # ----------------------------------------------------------------------------------
     # Items
     # ----------------------------------------------------------------------------------
     item_records = []
@@ -787,6 +863,7 @@ def main(spt_data_dir: str, out_path: str) -> None:
     lines += [f"loc:{k['location_id']}:{k['name']}" for k in kill_records]
     lines += [f"loc:{b['location_id']}:{b['name']}" for b in boss_records]
     lines += [f"loc:{r['location_id']}:{r['name']}:{r['tpl']}:{r['stand_in']}" for r in loot_records]
+    lines += [f"loc:{r['location_id']}:{r['name']}:{r['recipe']}" for r in craft_records]
     data_hash = hashlib.sha1("\n".join(sorted(lines)).encode("utf-8")).hexdigest()
 
     data = OrderedDict()
@@ -812,6 +889,7 @@ def main(spt_data_dir: str, out_path: str) -> None:
     data["kills"] = kill_records
     data["bosses"] = boss_records
     data["loot"] = loot_records
+    data["crafts"] = craft_records
     data["items"] = item_records
 
     with open(out_path, "w", encoding="utf-8") as f:
@@ -827,6 +905,8 @@ def main(spt_data_dir: str, out_path: str) -> None:
         print(f"   boss {b['name']}: {', '.join(b['maps'])}")
     from collections import Counter
     by_cat = Counter(r["category"] for r in loot_records)
+    print(f"craftsanity: {len(craft_records)} recipes; left out: "
+          + ", ".join(f"{k} {v}" for k, v in sorted(craft_skipped.items())))
     print(f"lootsanity: {len(loot_records)} item types ({sum(1 for r in loot_records if not r['maps'])} on bots "
           f"everywhere): " + ", ".join(f"{k} {v}" for k, v in sorted(by_cat.items())))
     print(f"objectives with unknown map (treated as needing every map): {len(unknown_objectives)}")

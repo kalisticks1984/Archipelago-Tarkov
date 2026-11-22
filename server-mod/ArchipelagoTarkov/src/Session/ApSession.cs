@@ -94,6 +94,31 @@ public sealed class ApSession
             ? def
             : null;
 
+    // ------------------------------------------------------------------ craftsanity
+    /// <summary>The craft check for a recipe, while its first craft is still to come; null otherwise.</summary>
+    public CraftDef? CraftTarget(string recipeId) =>
+        Active && _data.CraftsByRecipe.TryGetValue(recipeId, out var def) && State.SlotLocations.Contains(def.LocationId)
+        && !State.Checked.Contains(def.LocationId) && !State.CraftsDone.Contains(recipeId)
+            ? def
+            : null;
+
+    /// <summary>The first craft of a recipe was collected (its product already taken away): record the check.</summary>
+    public void RecordCraft(CraftDef craft)
+    {
+        if (State.CraftsDone.Add(craft.Recipe))
+        {
+            _dirty = true;
+            Say($"Craft check: {craft.Name.Replace("Craft - ", "")}. The first craft of each recipe goes to the multiworld.");
+        }
+    }
+
+    // ------------------------------------------------------------------ shop randomizer
+    /// <summary>"vanilla", "same_category" or "anything".</summary>
+    public string ShopMode => Active ? State.SlotString("shop_randomizer") ?? "vanilla" : "vanilla";
+    public bool ShopEveryRestock => State.SlotString("shop_reshuffle") == "every_restock";
+    public int ShopSeed => State.SlotInt("shop_seed");
+    public bool IsGatedTrader(string traderId) => _data.TradersById.ContainsKey(traderId);
+
     /// <summary>
     /// Raid end: takes every Archipelago Item out of the client's profile and records the ones brought out (all when
     /// the player survived, only the secure container's when not). Nothing happens on a transit: they travel along.

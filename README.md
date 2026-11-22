@@ -21,6 +21,9 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
 - **Lootsanity (optional):** pick item categories, and every item type in them is a check (up to ~3,200). The first
   spawn of an unchecked type in each raid is an *Archipelago Item*; extract with it to send the check. You never get
   the original item. The client plugin draws these with the Archipelago symbol.
+- **Craftsanity (optional):** the first craft of each hideout recipe (~180) is a check and gives no item.
+- **Randomized shops (optional):** the main traders sell random items from the same category or anything, with random
+  purchase limits by value tier and loyalty level, fixed for the seed or rerolled at every restock. Not checks.
 - **Goals:** a number of quests, Fence's *Collector* (Kappa), extracting from every map, or killing every boss.
 - **Items:** maps, traders, Flea Market access, experience, trader reputation, money, and crates of weapons, armor,
   medicine, ammo, keys, stims, barter goods and provisions. Traps: Fence Grudge, Exhaustion, Scav Cooldown.

@@ -4,7 +4,7 @@
   "eft_build": "0.16.9.5.40743",
   "item_base": 76310000,
   "location_base": 76400000,
-  "data_hash": "f4fe229409cf754d6c99ddc79ef35d823d71533a"
+  "data_hash": "7343c28b16ba8c4bfdd4adb9de15916c3ccfb145"
  },
  "maps": [
   {
@@ -78945,6 +78945,1838 @@
    "bot_safe": true,
    "stand_in": "a9a9a98ae9c78302e07c4afd",
    "location_id": 76503196
+  }
+ ],
+ "crafts": [
+  {
+   "recipe": "5d558968f934db006d2d5b32",
+   "name": "Craft - 9x18mm PMM PstM gzh (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "57371aab2459775a77142f22",
+   "continuous": false,
+   "location_id": 76600000
+  },
+  {
+   "recipe": "5d5589c1f934db045e6c5492",
+   "name": "Craft - Canister with purified water (Water Collector)",
+   "area": 6,
+   "level": 3,
+   "quest": null,
+   "product": "5d1b33a686f7742523398398",
+   "continuous": true,
+   "location_id": 76600001
+  },
+  {
+   "recipe": "5d5c1f25d582a5479d4ec458",
+   "name": "Craft - 5.45x39mm PP gs (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": "59c512ad86f7741f0d09de9b",
+   "product": "56dff2ced2720bb4668b4567",
+   "continuous": false,
+   "location_id": 76600002
+  },
+  {
+   "recipe": "5d5c1f5ed582a543983ee82e",
+   "name": "Craft - AI-2 medkit (Medstation)",
+   "area": 7,
+   "level": 1,
+   "quest": null,
+   "product": "5755356824597772cb798962",
+   "continuous": false,
+   "location_id": 76600003
+  },
+  {
+   "recipe": "5d5c21aed582a50066024610",
+   "name": "Craft - IFAK individual first aid kit (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": null,
+   "product": "590c678286f77426c9660122",
+   "continuous": false,
+   "location_id": 76600004
+  },
+  {
+   "recipe": "5d78d81757c9b8484a2bcb99",
+   "name": "Craft - 5.56x45mm MK 318 Mod 0 (SOST) (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "60194943740c5d77f6705eea",
+   "continuous": false,
+   "location_id": 76600005
+  },
+  {
+   "recipe": "5d78d8a03fe9fc21602e16be",
+   "name": "Craft - Grizzly medical kit (Medstation)",
+   "area": 7,
+   "level": 3,
+   "quest": null,
+   "product": "590c657e86f77412b013051d",
+   "continuous": false,
+   "location_id": 76600006
+  },
+  {
+   "recipe": "5d78dbfb65aebb016d20b6f3",
+   "name": "Craft - Kalashnikov AK-74M 5.45x39 assault rifle (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5ac4cd105acfc40016339859",
+   "continuous": false,
+   "location_id": 76600007
+  },
+  {
+   "recipe": "5d78f27d115f693ad750d2c6",
+   "name": "Craft - RGD-5 hand grenade (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5448be9a4bdc2dfd2f8b456a",
+   "continuous": false,
+   "location_id": 76600008
+  },
+  {
+   "recipe": "5d8a13564ac882218d2085b0",
+   "name": "Craft - Can of condensed milk (Nutrition Unit)",
+   "area": 8,
+   "level": 2,
+   "quest": null,
+   "product": "5734773724597737fd047c14",
+   "continuous": false,
+   "location_id": 76600009
+  },
+  {
+   "recipe": "5d8a13fc2d9612419804003c",
+   "name": "Craft - Iskra ration pack (Nutrition Unit)",
+   "area": 8,
+   "level": 1,
+   "quest": null,
+   "product": "590c5d4b86f774784e1b9c45",
+   "continuous": false,
+   "location_id": 76600010
+  },
+  {
+   "recipe": "5d8a1568df9fc649e81b8b1b",
+   "name": "Craft - Wilston cigarettes (Nutrition Unit)",
+   "area": 8,
+   "level": 2,
+   "quest": null,
+   "product": "573476f124597737e04bf328",
+   "continuous": false,
+   "location_id": 76600011
+  },
+  {
+   "recipe": "5d8a1a7d7a3dfe597c2e459e",
+   "name": "Craft - Salewa first aid kit (Medstation)",
+   "area": 7,
+   "level": 1,
+   "quest": null,
+   "product": "544fb45d4bdc2dee738b4568",
+   "continuous": false,
+   "location_id": 76600012
+  },
+  {
+   "recipe": "5d8b8ddd322e8650762f6e3a",
+   "name": "Craft - Ox bleach (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "59e3556c86f7741776641ac2",
+   "continuous": false,
+   "location_id": 76600013
+  },
+  {
+   "recipe": "5d8f5e1af3a8f83c8600afb2",
+   "name": "Craft - Schaman shampoo (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5d40412b86f7743cb332ac3a",
+   "continuous": false,
+   "location_id": 76600014
+  },
+  {
+   "recipe": "5d8f5ee9de0799001d229ed2",
+   "name": "Craft - Expeditionary fuel tank (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5d1b371186f774253763a656",
+   "continuous": false,
+   "location_id": 76600015
+  },
+  {
+   "recipe": "5d8f614c9ea122564c316462",
+   "name": "Craft - Propital regenerative stimulant injector (Medstation)",
+   "area": 7,
+   "level": 3,
+   "quest": null,
+   "product": "5c0e530286f7747fa1419862",
+   "continuous": false,
+   "location_id": 76600016
+  },
+  {
+   "recipe": "5d93b91286f77467310ca15d",
+   "name": "Craft - Toilet paper (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5c13cef886f774072e618e82",
+   "continuous": false,
+   "location_id": 76600017
+  },
+  {
+   "recipe": "5d93ba4486f77454bd61d2a9",
+   "name": "Craft - FP-100 filter absorber (Lavatory)",
+   "area": 2,
+   "level": 3,
+   "quest": null,
+   "product": "5d1b2f3f86f774252167a52c",
+   "continuous": false,
+   "location_id": 76600018
+  },
+  {
+   "recipe": "5dc1f4d9e078d303d91b44c7",
+   "name": "Craft - Bottle of water (0.6L) (Nutrition Unit)",
+   "area": 8,
+   "level": 3,
+   "quest": null,
+   "product": "5448fee04bdc2dbc018b4567",
+   "continuous": false,
+   "location_id": 76600019
+  },
+  {
+   "recipe": "5dc1f634ee5f2440a9272dc7",
+   "name": "Craft - Bottle of Tarkovskaya vodka (Nutrition Unit)",
+   "area": 8,
+   "level": 3,
+   "quest": null,
+   "product": "5d40407c86f774318526545a",
+   "continuous": false,
+   "location_id": 76600020
+  },
+  {
+   "recipe": "5dc1f7de6058e020335c9d88",
+   "name": "Craft - Slickers chocolate bar (Nutrition Unit)",
+   "area": 8,
+   "level": 2,
+   "quest": null,
+   "product": "544fb6cc4bdc2d34748b456e",
+   "continuous": false,
+   "location_id": 76600021
+  },
+  {
+   "recipe": "5dceb6964a98801ba2075d27",
+   "name": "Craft - 7.62x51mm M61 (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "5a27bc8586f7741b543d8ea4",
+   "product": "5a6086ea4f39f99cd479502f",
+   "continuous": false,
+   "location_id": 76600022
+  },
+  {
+   "recipe": "5dceeaf100b3815535149f5a",
+   "name": "Craft - Magazine case (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5c127c4486f7745625356c13",
+   "continuous": false,
+   "location_id": 76600023
+  },
+  {
+   "recipe": "5dcfe2582f9b3d566c7af977",
+   "name": "Craft - Corrugated hose (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "59e35cbb86f7741778269d83",
+   "continuous": false,
+   "location_id": 76600024
+  },
+  {
+   "recipe": "5dd1126571e3fd3f634b1c8b",
+   "name": "Craft - Bundle of wires (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5c06779c86f77426e00dd782",
+   "continuous": false,
+   "location_id": 76600025
+  },
+  {
+   "recipe": "5dd11303b78bb413d5133f79",
+   "name": "Craft - Capacitors (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5c06782b86f77426df5407d2",
+   "continuous": false,
+   "location_id": 76600026
+  },
+  {
+   "recipe": "5dd3c5487058311d4b267186",
+   "name": "Craft - Gunpowder \"Kite\" (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "590c5a7286f7747884343aea",
+   "continuous": false,
+   "location_id": 76600027
+  },
+  {
+   "recipe": "5dd3c5a67da3785e63275437",
+   "name": "Craft - Gunpowder \"Hawk\" (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5d6fc87386f77449db3db94e",
+   "continuous": false,
+   "location_id": 76600028
+  },
+  {
+   "recipe": "5dd3c9c8449c0c31795b0f0b",
+   "name": "Craft - Gunpowder \"Hawk\" (Workbench) #2",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5d6fc87386f77449db3db94e",
+   "continuous": false,
+   "location_id": 76600029
+  },
+  {
+   "recipe": "5dde60e0e2c8f57eb6465327",
+   "name": "Craft - 9x39mm PAB-9 gs (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": "5c0bd94186f7747a727f09b2",
+   "product": "61962d879bb3d20b0946d385",
+   "continuous": false,
+   "location_id": 76600030
+  },
+  {
+   "recipe": "5de021b30f6d581e965bcde7",
+   "name": "Craft - Weapon parts (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5d1c819a86f774771b0acd6c",
+   "continuous": false,
+   "location_id": 76600031
+  },
+  {
+   "recipe": "5de10c50c607752a1f1262c7",
+   "name": "Craft - Pack of sugar (Nutrition Unit)",
+   "area": 8,
+   "level": 2,
+   "quest": null,
+   "product": "59e3577886f774176a362503",
+   "continuous": false,
+   "location_id": 76600032
+  },
+  {
+   "recipe": "5de919ec1b25d85cf30ca39a",
+   "name": "Craft - Gunpowder \"Eagle\" (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5d6fc78386f77449d825f9dc",
+   "continuous": false,
+   "location_id": 76600033
+  },
+  {
+   "recipe": "5de950a845b5d67bad6e9ef7",
+   "name": "Craft - Power cord (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "59e36c6f86f774176c10a2a7",
+   "continuous": false,
+   "location_id": 76600034
+  },
+  {
+   "recipe": "5de951483c52683d810b4a10",
+   "name": "Craft - Printed circuit board (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "590a3b0486f7743954552bdb",
+   "continuous": false,
+   "location_id": 76600035
+  },
+  {
+   "recipe": "5de95c91225b0a76ca0ea0b7",
+   "name": "Craft - Electric motor (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5d1b2fa286f77425227d1674",
+   "continuous": false,
+   "location_id": 76600036
+  },
+  {
+   "recipe": "5de95f1c9517b140195ab717",
+   "name": "Craft - Rechargeable battery (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "590a358486f77429692b2790",
+   "continuous": false,
+   "location_id": 76600037
+  },
+  {
+   "recipe": "5dea63e21ecdbf7668030f24",
+   "name": "Craft - Car battery (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5733279d245977289b77ec24",
+   "continuous": false,
+   "location_id": 76600038
+  },
+  {
+   "recipe": "5df138986c38ba26da0b3a77",
+   "name": "Craft - Broken LCD (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5d1b309586f77425227d1676",
+   "continuous": false,
+   "location_id": 76600039
+  },
+  {
+   "recipe": "5df8fe0deddb880fd56f2d7d",
+   "name": "Craft - Clin window cleaner (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "59e358a886f7741776641ac3",
+   "continuous": false,
+   "location_id": 76600040
+  },
+  {
+   "recipe": "5df8ffcbaab5f257bd7ff3a8",
+   "name": "Craft - WD-40 (100ml) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "590c5bbd86f774785762df04",
+   "continuous": false,
+   "location_id": 76600041
+  },
+  {
+   "recipe": "5df914a53ce0f648b833bb37",
+   "name": "Craft - Secure Flash drive (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": null,
+   "product": "590c621186f774138d11ea29",
+   "continuous": false,
+   "location_id": 76600042
+  },
+  {
+   "recipe": "5e13301cc7049d4d9738e1a7",
+   "name": "Craft - Pile of meds (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": null,
+   "product": "5d1b3a5d86f774252167ba22",
+   "continuous": false,
+   "location_id": 76600043
+  },
+  {
+   "recipe": "5e1330dca0f0f8773c069c99",
+   "name": "Craft - Gas mask air filter (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "590c595c86f7747884343ad7",
+   "continuous": false,
+   "location_id": 76600044
+  },
+  {
+   "recipe": "5e37f15386f774299f112a2e",
+   "name": "Craft - Zarya stun grenade (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5a0c27731526d80618476ac4",
+   "continuous": false,
+   "location_id": 76600045
+  },
+  {
+   "recipe": "5e58e0c286f7740ba7486ca3",
+   "name": "Craft - Intelligence folder (Intelligence Center)",
+   "area": 11,
+   "level": 3,
+   "quest": null,
+   "product": "5c12613b86f7743bbe2c3f76",
+   "continuous": false,
+   "location_id": 76600046
+  },
+  {
+   "recipe": "5e66408286f7747b2c2d7786",
+   "name": "Craft - VOG-25 Khattabka improvised hand grenade (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5e340dcdcb6d5863cc5e5efb",
+   "continuous": false,
+   "location_id": 76600047
+  },
+  {
+   "recipe": "5e6cfc53a3e6886b9e6c39a8",
+   "name": "Craft - SJ1 TGLabs combat stimulant injector (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": null,
+   "product": "5c0e531286f7747fa54205c2",
+   "continuous": false,
+   "location_id": 76600048
+  },
+  {
+   "recipe": "5ed9fd73f6626f08ef0efec6",
+   "name": "Craft - Morphine injector (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": null,
+   "product": "544fb3f34bdc2d03748b456a",
+   "continuous": false,
+   "location_id": 76600049
+  },
+  {
+   "recipe": "5ed9ff023a68ec264e5233c2",
+   "name": "Craft - Virtex programmable processor (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": "63966faeea19ac7ed845db2c",
+   "product": "5c05308086f7746b2101e90b",
+   "continuous": false,
+   "location_id": 76600050
+  },
+  {
+   "recipe": "5eda007f658fac5b8c3862a6",
+   "name": "Craft - Military COFDM Wireless Signal Transmitter (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": "63966fbeea19ac7ed845db2e",
+   "product": "5c052f6886f7746b1e3db148",
+   "continuous": false,
+   "location_id": 76600051
+  },
+  {
+   "recipe": "5eda0247658fac5b8c3862a8",
+   "name": "Craft - AK-74 5.45x39 6L31 60-round magazine (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "55d482194bdc2d1d4e8b456b",
+   "continuous": false,
+   "location_id": 76600052
+  },
+  {
+   "recipe": "5eda04a30699b81bb9142aa2",
+   "name": "Craft - Aseptic bandage (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "544fb25a4bdc2dfb738b4567",
+   "continuous": false,
+   "location_id": 76600053
+  },
+  {
+   "recipe": "5eda072cf6626f08ef0efed4",
+   "name": "Craft - BNTI Module-3M body armor (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "59e7635f86f7742cbf2c1095",
+   "continuous": false,
+   "location_id": 76600054
+  },
+  {
+   "recipe": "5eda07acb6c564225571536c",
+   "name": "Craft - Splav Tarzan M22 chest rig (Smog) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5e4abfed86f77406a2713cf7",
+   "continuous": false,
+   "location_id": 76600055
+  },
+  {
+   "recipe": "5eda0ad40699b81bb9142aae",
+   "name": "Craft - VPX Flash Storage Module (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": "63966fe7ea74a47c2d3fc0e6",
+   "product": "5c05300686f7746dce784e5d",
+   "continuous": false,
+   "location_id": 76600056
+  },
+  {
+   "recipe": "5ede0053879619077751cff1",
+   "name": "Craft - Surv12 field surgical kit (Medstation)",
+   "area": 7,
+   "level": 3,
+   "quest": null,
+   "product": "5d02797c86f774203f38e30a",
+   "continuous": false,
+   "location_id": 76600057
+  },
+  {
+   "recipe": "5ede0135f7db6021ee400dfe",
+   "name": "Craft - Vaseline balm (Medstation)",
+   "area": 7,
+   "level": 3,
+   "quest": null,
+   "product": "5755383e24597772cb798966",
+   "continuous": false,
+   "location_id": 76600058
+  },
+  {
+   "recipe": "5ede01e062155304b6512067",
+   "name": "Craft - Medical bloodset (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": null,
+   "product": "5b4335ba86f7744d2837a264",
+   "continuous": false,
+   "location_id": 76600059
+  },
+  {
+   "recipe": "5ede0502879619077751d00a",
+   "name": "Craft - SJ6 TGLabs combat stimulant injector (Medstation)",
+   "area": 7,
+   "level": 3,
+   "quest": null,
+   "product": "5c0e531d86f7747fa23f4d42",
+   "continuous": false,
+   "location_id": 76600060
+  },
+  {
+   "recipe": "5ede07163c345121732a10e9",
+   "name": "Craft - Army bandage (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5751a25924597722c463c472",
+   "continuous": false,
+   "location_id": 76600061
+  },
+  {
+   "recipe": "5ede1e0b7690fa313b632e88",
+   "name": "Craft - Can of beef stew (Small) (Nutrition Unit)",
+   "area": 8,
+   "level": 1,
+   "quest": null,
+   "product": "57347d7224597744596b4e72",
+   "continuous": false,
+   "location_id": 76600062
+  },
+  {
+   "recipe": "5ee4a093a297eb185236194f",
+   "name": "Craft - UHF RFID Reader (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": "63966fccac6f8f3c677b9d89",
+   "product": "5c052fb986f7746b2101e909",
+   "continuous": false,
+   "location_id": 76600063
+  },
+  {
+   "recipe": "5eeca7724a8a9b668f0d89cd",
+   "name": "Craft - 9x19mm AP 6.3 (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5c925fa22e221601da359b7b",
+   "continuous": false,
+   "location_id": 76600064
+  },
+  {
+   "recipe": "5eeca812c4c989140245ae0c",
+   "name": "Craft - Graphics card (Intelligence Center)",
+   "area": 11,
+   "level": 3,
+   "quest": null,
+   "product": "57347ca924597744596b4e71",
+   "continuous": false,
+   "location_id": 76600065
+  },
+  {
+   "recipe": "5eeca8e327ccd70521107fdc",
+   "name": "Craft - Portable defibrillator (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": null,
+   "product": "5c052e6986f7746b207bc3c9",
+   "continuous": false,
+   "location_id": 76600066
+  },
+  {
+   "recipe": "5eeca9bad874f914d2536585",
+   "name": "Craft - Lucky Scav Junk box (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5b7c710788a4506dec015957",
+   "continuous": false,
+   "location_id": 76600067
+  },
+  {
+   "recipe": "5eecaa6327ccd70521107ff5",
+   "name": "Craft - Ripstop fabric (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5e2af4a786f7746d3f3c3400",
+   "continuous": false,
+   "location_id": 76600068
+  },
+  {
+   "recipe": "5f240f45f4a9420a8c328ee0",
+   "name": "Craft - Can of Max Energy energy drink (Nutrition Unit)",
+   "area": 8,
+   "level": 1,
+   "quest": null,
+   "product": "5751435d24597720a27126d1",
+   "continuous": false,
+   "location_id": 76600069
+  },
+  {
+   "recipe": "5f241246232409155b66b809",
+   "name": "Craft - Can of Hot Rod energy drink (Nutrition Unit)",
+   "area": 8,
+   "level": 3,
+   "quest": null,
+   "product": "5751496424597720a27126da",
+   "continuous": false,
+   "location_id": 76600070
+  },
+  {
+   "recipe": "5f245f875b664e084523a4ce",
+   "name": "Craft - .366 TKM AP-M (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "5bc47dbf86f7741ee74e93b9",
+   "product": "5f0596629e22f464da6bbdd9",
+   "continuous": false,
+   "location_id": 76600071
+  },
+  {
+   "recipe": "5ffcaa60f3fdc212a91d552b",
+   "name": "Craft - Aramid fiber fabric (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5e2af4d286f7746d4159f07a",
+   "continuous": false,
+   "location_id": 76600072
+  },
+  {
+   "recipe": "5ffcab66fd851f4b000d61ef",
+   "name": "Craft - Grenade case (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5e2af55f86f7746d4159f07c",
+   "continuous": false,
+   "location_id": 76600073
+  },
+  {
+   "recipe": "5ffcac4e1285295b7441ee01",
+   "name": "Craft - Printed circuit board (Workbench) #2",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "590a3b0486f7743954552bdb",
+   "continuous": false,
+   "location_id": 76600074
+  },
+  {
+   "recipe": "5ffcacbf24fa2e741e767234",
+   "name": "Craft - Geiger-Muller counter (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5672cb724bdc2dc2088b456b",
+   "continuous": false,
+   "location_id": 76600075
+  },
+  {
+   "recipe": "5ffcad24f3fdc212a91d5536",
+   "name": "Craft - 12/70 Piranha (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "64b8ee384b75259c590fa89b",
+   "continuous": false,
+   "location_id": 76600076
+  },
+  {
+   "recipe": "5ffcadeff3fdc212a91d5539",
+   "name": "Craft - Bottle of Norvinsky Yadreniy premium kvass (0.6L) (Nutrition Unit)",
+   "area": 8,
+   "level": 1,
+   "quest": null,
+   "product": "5e8f3423fd7471236e6e3b64",
+   "continuous": false,
+   "location_id": 76600077
+  },
+  {
+   "recipe": "5ffcafd468c55773943fc71e",
+   "name": "Craft - Fleece fabric (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5e2af47786f7746d404f3aaa",
+   "continuous": false,
+   "location_id": 76600078
+  },
+  {
+   "recipe": "6002e26ac6b84d04cc62045e",
+   "name": "Craft - Magnet (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "590a391c86f774385a33c404",
+   "continuous": false,
+   "location_id": 76600079
+  },
+  {
+   "recipe": "6002e55595c402039a2747f4",
+   "name": "Craft - TerraGroup Labs keycard (Violet) (Intelligence Center)",
+   "area": 11,
+   "level": 3,
+   "quest": null,
+   "product": "5c1e495a86f7743109743dfb",
+   "continuous": false,
+   "location_id": 76600080
+  },
+  {
+   "recipe": "6002e68bca41c53bee18813b",
+   "name": "Craft - KEKTAPE duct tape (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5e2af29386f7746d4159f077",
+   "continuous": false,
+   "location_id": 76600081
+  },
+  {
+   "recipe": "6002e8fb41d38607bc4198ab",
+   "name": "Craft - Object #11SR keycard (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": null,
+   "product": "5e42c81886f7742a01529f57",
+   "continuous": false,
+   "location_id": 76600082
+  },
+  {
+   "recipe": "6002ed409f2c60461a2d0f5a",
+   "name": "Craft - Military circuit board (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5d0376a486f7747d8050965c",
+   "continuous": false,
+   "location_id": 76600083
+  },
+  {
+   "recipe": "6002eec9cc73cd34ac64188a",
+   "name": "Craft - xTG-12 antidote injector (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": "60e71c11d54b755a3b53eb65",
+   "product": "5fca138c2a7b221b2852a5c6",
+   "continuous": false,
+   "location_id": 76600084
+  },
+  {
+   "recipe": "60048c82a7903e00382d9593",
+   "name": "Craft - FLIR RS-32 2.25-9x 35mm 60Hz thermal riflescope (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "63966ff54c3ef01b6f3ffad8",
+   "product": "5d1b5e94d7ad1a2b865a96b0",
+   "continuous": false,
+   "location_id": 76600085
+  },
+  {
+   "recipe": "600a98d076fc4b1877509ead",
+   "name": "Craft - Kalashnikov AK-74N 5.45x39 assault rifle (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5644bd2b4bdc2d3b4c8b4572",
+   "continuous": false,
+   "location_id": 76600086
+  },
+  {
+   "recipe": "600a9955ba91d953182d69f0",
+   "name": "Craft - Kalashnikov AKM 7.62x39 assault rifle (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "59d6088586f774275f37482f",
+   "continuous": false,
+   "location_id": 76600087
+  },
+  {
+   "recipe": "600a9a34189b226f40059743",
+   "name": "Craft - NIXXOR lens (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5d1b2ffd86f77425243e8d17",
+   "continuous": false,
+   "location_id": 76600088
+  },
+  {
+   "recipe": "600a9b10adfcb94fee6d3e06",
+   "name": "Craft - T-Shaped plug (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "57347cd0245977445a2d6ff1",
+   "continuous": false,
+   "location_id": 76600089
+  },
+  {
+   "recipe": "600a9bd0189b226f40059751",
+   "name": "Craft - 23x75mm Zvezda flashbang round (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5e85a9f4add9fe03027d9bf1",
+   "continuous": false,
+   "location_id": 76600090
+  },
+  {
+   "recipe": "600a9fb7ba91d953182d6a1c",
+   "name": "Craft - OFZ 30x165mm shell (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5d0379a886f77420407aa271",
+   "continuous": false,
+   "location_id": 76600091
+  },
+  {
+   "recipe": "600aa0d1090cb6338027028c",
+   "name": "Craft - Aluminum splint (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5af0454c86f7746bf20992e8",
+   "continuous": false,
+   "location_id": 76600092
+  },
+  {
+   "recipe": "600aa140090cb63380270290",
+   "name": "Craft - Cordura polyamide fabric (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5e2af41e86f774755a234b67",
+   "continuous": false,
+   "location_id": 76600093
+  },
+  {
+   "recipe": "600aa209f64dfd63ec1293d6",
+   "name": "Craft - BlackRock chest rig (Gray) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5648a69d4bdc2ded0b8b457b",
+   "continuous": false,
+   "location_id": 76600094
+  },
+  {
+   "recipe": "600ab813d19f85018a7489c4",
+   "name": "Craft - Water filter (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5d1b385e86f774252167b98a",
+   "continuous": false,
+   "location_id": 76600095
+  },
+  {
+   "recipe": "600ab8e3e4022c380a726088",
+   "name": "Craft - Bottle of Dan Jackiel whiskey (Nutrition Unit)",
+   "area": 8,
+   "level": 3,
+   "quest": null,
+   "product": "5d403f9186f7743cac3f229b",
+   "continuous": false,
+   "location_id": 76600096
+  },
+  {
+   "recipe": "600ab99ce4022c380a726090",
+   "name": "Craft - CALOK-B hemostatic applicator (Medstation)",
+   "area": 7,
+   "level": 1,
+   "quest": null,
+   "product": "5e8488fa988a8701445df1e4",
+   "continuous": false,
+   "location_id": 76600097
+  },
+  {
+   "recipe": "600abc08e4022c380a7260a8",
+   "name": "Craft - LEDX Skin Transilluminator (Medstation)",
+   "area": 7,
+   "level": 3,
+   "quest": null,
+   "product": "5c0530ee86f774697952d952",
+   "continuous": false,
+   "location_id": 76600098
+  },
+  {
+   "recipe": "6012ea1a01328b2dec3c1a9d",
+   "name": "Craft - Paracord (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5c12688486f77426843c7d32",
+   "continuous": false,
+   "location_id": 76600099
+  },
+  {
+   "recipe": "6012ee7e44a0465ee67a58de",
+   "name": "Craft - M.U.L.E. stimulant injector (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": "60e71c48c1bfa3050473b8e5",
+   "product": "5ed51652f6c34d2cc26336a1",
+   "continuous": false,
+   "location_id": 76600100
+  },
+  {
+   "recipe": "603ce7c5fd70f047f93bee2a",
+   "name": "Craft - 6B47 Ratnik-BSh helmet (EMR cover) (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5aa7cfc0e5b5b00015693143",
+   "continuous": false,
+   "location_id": 76600101
+  },
+  {
+   "recipe": "603cf23a420e7f487e175d7f",
+   "name": "Craft - Spark plug (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "590a3c0a86f774385a33c450",
+   "continuous": false,
+   "location_id": 76600102
+  },
+  {
+   "recipe": "603cf3094bb658618458e010",
+   "name": "Craft - Broken GPhone smartphone (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "56742c324bdc2d150f8b456d",
+   "continuous": false,
+   "location_id": 76600103
+  },
+  {
+   "recipe": "615c3d27966c85458e4c49cf",
+   "name": "Craft - AFAK tactical individual first aid kit (Medstation)",
+   "area": 7,
+   "level": 3,
+   "quest": null,
+   "product": "60098ad7c2240c0fe85c570a",
+   "continuous": false,
+   "location_id": 76600104
+  },
+  {
+   "recipe": "615c3d800d3afc358a55405e",
+   "name": "Craft - Weapon parts (Workbench) #2",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5d1c819a86f774771b0acd6c",
+   "continuous": false,
+   "location_id": 76600105
+  },
+  {
+   "recipe": "619e45ea98398d3b104e8419",
+   "name": "Craft - Bulbex cable cutter (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "619cbfeb6b8a1b37a54eebfa",
+   "continuous": false,
+   "location_id": 76600106
+  },
+  {
+   "recipe": "619eb0eb56579138ec08fed8",
+   "name": "Craft - CMS surgical kit (Medstation)",
+   "area": 7,
+   "level": 1,
+   "quest": null,
+   "product": "5d02778e86f774203e7dedbe",
+   "continuous": false,
+   "location_id": 76600107
+  },
+  {
+   "recipe": "61c226d91b8c294cd411c881",
+   "name": "Craft - Gas analyzer (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "590a3efd86f77437d351a25b",
+   "continuous": false,
+   "location_id": 76600108
+  },
+  {
+   "recipe": "61c77c830f3639492721e99c",
+   "name": "Craft - Aquamari water bottle with filter (Nutrition Unit)",
+   "area": 8,
+   "level": 2,
+   "quest": null,
+   "product": "5c0fa877d174af02a012e1cf",
+   "continuous": false,
+   "location_id": 76600109
+  },
+  {
+   "recipe": "61c77cc6fcc1673f08540e9b",
+   "name": "Craft - Emergency Water Ration (Nutrition Unit)",
+   "area": 8,
+   "level": 1,
+   "quest": null,
+   "product": "60098b1705871270cd5352a1",
+   "continuous": false,
+   "location_id": 76600110
+  },
+  {
+   "recipe": "61c77d465a98404dee40a77c",
+   "name": "Craft - .45 ACP AP (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5efb0cabfb3e451d70735af5",
+   "continuous": false,
+   "location_id": 76600111
+  },
+  {
+   "recipe": "61dc03711bdcfa2f253c9b7c",
+   "name": "Craft - GreenBat lithium battery (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5e2aedd986f7746d404f3aa4",
+   "continuous": false,
+   "location_id": 76600112
+  },
+  {
+   "recipe": "629e19eddb6e1a02066676f1",
+   "name": "Craft - Weapon repair kit (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5910968f86f77425cf569c32",
+   "continuous": false,
+   "location_id": 76600113
+  },
+  {
+   "recipe": "629e1b3a0694b45420210cad",
+   "name": "Craft - Can of Majaica coffee beans (Nutrition Unit)",
+   "area": 8,
+   "level": 2,
+   "quest": null,
+   "product": "5af0484c86f7740f02001f7f",
+   "continuous": false,
+   "location_id": 76600114
+  },
+  {
+   "recipe": "62a1123ac30cfa1d366aeb82",
+   "name": "Craft - PP-9 Klin 9x18PMM submachine gun (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "57f4c844245977379d5c14d1",
+   "continuous": false,
+   "location_id": 76600115
+  },
+  {
+   "recipe": "62a112fec1cce91d2c46a06e",
+   "name": "Craft - Topographic survey maps (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": null,
+   "product": "62a0a124de7ac81993580542",
+   "continuous": false,
+   "location_id": 76600116
+  },
+  {
+   "recipe": "62a11354b552772a0c4ba09e",
+   "name": "Craft - Can of thermite (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "60391a8b3364dc22b04d0ce5",
+   "continuous": false,
+   "location_id": 76600117
+  },
+  {
+   "recipe": "62a11415c30cfa1d366aeb83",
+   "name": "Craft - Soap (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5c13cd2486f774072c757944",
+   "continuous": false,
+   "location_id": 76600118
+  },
+  {
+   "recipe": "62a115db5c6bbf22c15ac19d",
+   "name": "Craft - Round pliers (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5d1b31ce86f7742523398394",
+   "continuous": false,
+   "location_id": 76600119
+  },
+  {
+   "recipe": "62a116282c5e0c325b62d5ec",
+   "name": "Craft - Military flash drive (Intelligence Center)",
+   "area": 11,
+   "level": 3,
+   "quest": null,
+   "product": "62a0a16d0b9d3c46de5b6e97",
+   "continuous": false,
+   "location_id": 76600120
+  },
+  {
+   "recipe": "62a11658650cc35fa94e009a",
+   "name": "Craft - Bottle of Pevko Light beer (Nutrition Unit)",
+   "area": 8,
+   "level": 3,
+   "quest": null,
+   "product": "62a09f32621468534a797acb",
+   "continuous": false,
+   "location_id": 76600121
+  },
+  {
+   "recipe": "63a2327c151bfb591645c104",
+   "name": "Craft - Trijicon REAP-IR thermal scope (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "6396701b9113f06a7c3b2379",
+   "product": "5a1eaa87fcdbcb001865f75e",
+   "continuous": false,
+   "location_id": 76600122
+  },
+  {
+   "recipe": "63a232f8ab6bb51044344bff",
+   "name": "Craft - Microcontroller board (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "6396700fea19ac7ed845db32",
+   "product": "6389c7750ef44505c87f5996",
+   "continuous": false,
+   "location_id": 76600123
+  },
+  {
+   "recipe": "63a2abbb31772a61500d5336",
+   "name": "Craft - Piece of plexiglass (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "59e366c186f7741778269d85",
+   "continuous": false,
+   "location_id": 76600124
+  },
+  {
+   "recipe": "63a3359eaf870e651d58e61a",
+   "name": "Craft - PM 9x18PM 84-round makeshift drum magazine (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "55d485be4bdc2d962f8b456f",
+   "continuous": false,
+   "location_id": 76600125
+  },
+  {
+   "recipe": "63a571802116d261d2336cd1",
+   "name": "Craft - Radio repeater (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": "625d6ffaf7308432be1d44c5",
+   "product": "63a0b2eabea67a6d93009e52",
+   "continuous": false,
+   "location_id": 76600126
+  },
+  {
+   "recipe": "63baedefe6ebc10fe0201083",
+   "name": "Craft - 4.6x30mm AP SX (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "5c0d4e61d09282029f53920e",
+   "product": "5ba26835d4351e0035628ff5",
+   "continuous": false,
+   "location_id": 76600127
+  },
+  {
+   "recipe": "63bd4c3964d7e356983c4cf5",
+   "name": "Craft - 5.7x28mm SS190 (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5cc80f38e4a949001152b560",
+   "continuous": false,
+   "location_id": 76600128
+  },
+  {
+   "recipe": "64b6aefe25251516d768542d",
+   "name": "Craft - VOG-17 Khattabka improvised hand grenade (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": "5c0d190cd09282029f5390d8",
+   "product": "5e32f56fcb6d5863cc5e5ee4",
+   "continuous": false,
+   "location_id": 76600129
+  },
+  {
+   "recipe": "64b6b5c1c3abf20a9660daad",
+   "name": "Craft - eTG-change regenerative stimulant injector (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": "60e71c48c1bfa3050473b8e5",
+   "product": "5c0e534186f7747fa1419867",
+   "continuous": false,
+   "location_id": 76600130
+  },
+  {
+   "recipe": "6558d7894626375d6735670c",
+   "name": "Craft - .338 Lapua Magnum FMJ (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": null,
+   "product": "5fc275cf85fd526b824a571a",
+   "continuous": false,
+   "location_id": 76600131
+  },
+  {
+   "recipe": "655b33429db22d43ab42b704",
+   "name": "Craft - 5.45x39mm BP gs (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "64e7b9bffd30422ed03dad38",
+   "product": "56dfef82d2720bbd668b4567",
+   "continuous": false,
+   "location_id": 76600132
+  },
+  {
+   "recipe": "655b4489065b076eb02c4b45",
+   "name": "Craft - 5.56x45mm M855A1 (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "639135534b15ca31f76bc317",
+   "product": "54527ac44bdc2d36668b4567",
+   "continuous": false,
+   "location_id": 76600133
+  },
+  {
+   "recipe": "655b457c9db22d43ab42b706",
+   "name": "Craft - .300 Blackout M62 Tracer (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": "5a27bb8386f7741c770d2d0a",
+   "product": "619636be6db0f2477964e710",
+   "continuous": false,
+   "location_id": 76600134
+  },
+  {
+   "recipe": "655b4669b71eeb7c4168c625",
+   "name": "Craft - .300 Blackout AP (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "60e71c9ad54b755a3b53eb66",
+   "product": "5fd20ff893a8961fc660a954",
+   "continuous": false,
+   "location_id": 76600135
+  },
+  {
+   "recipe": "655b47d1769de97e1d62d115",
+   "name": "Craft - 7.62x39mm FMJ (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "64b7af5a8532cf95ee0a0dbd",
+   "continuous": false,
+   "location_id": 76600136
+  },
+  {
+   "recipe": "655b4a73975a7f3c734661a5",
+   "name": "Craft - 7.62x39mm BP gzh (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "60e71bb4e456d449cd47ca75",
+   "product": "59e0d99486f7744a32234762",
+   "continuous": false,
+   "location_id": 76600137
+  },
+  {
+   "recipe": "655b4bbe4343a16d2e047668",
+   "name": "Craft - 7.62x51mm BCP FMJ (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5e023e53d4353e3302577c4c",
+   "continuous": false,
+   "location_id": 76600138
+  },
+  {
+   "recipe": "655b4de41f2b6843ec751fd5",
+   "name": "Craft - 7.62x54mm R LPS gzh (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5887431f2459777e1612938f",
+   "continuous": false,
+   "location_id": 76600139
+  },
+  {
+   "recipe": "655b4f57769de97e1d62d116",
+   "name": "Craft - 7.62x54mm R BT gzh (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "5bc4856986f77454c317bea7",
+   "product": "5e023d34e8a400319a28ed44",
+   "continuous": false,
+   "location_id": 76600140
+  },
+  {
+   "recipe": "655b505c32b0b1645e6f54c5",
+   "name": "Craft - 9x18mm PM SP8 gzh (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5737218f245977612125ba51",
+   "continuous": false,
+   "location_id": 76600141
+  },
+  {
+   "recipe": "655b50e7c023e22044165de5",
+   "name": "Craft - 9x19mm Luger CCI (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5a3c16fe86f77452b62de32a",
+   "continuous": false,
+   "location_id": 76600142
+  },
+  {
+   "recipe": "655b54e7065b076eb02c4b47",
+   "name": "Craft - 5.7x28mm L191 (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5cc80f53e4a949000e1ea4f8",
+   "continuous": false,
+   "location_id": 76600143
+  },
+  {
+   "recipe": "655b56eb32b0b1645e6f54c8",
+   "name": "Craft - 9x21mm P gzh (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "5a26abfac4a28232980eabff",
+   "continuous": false,
+   "location_id": 76600144
+  },
+  {
+   "recipe": "655b58a49db22d43ab42b709",
+   "name": "Craft - 12/70 makeshift .50 BMG slug (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5d6e68c4a4b9361b93413f79",
+   "continuous": false,
+   "location_id": 76600145
+  },
+  {
+   "recipe": "655b598db71eeb7c4168c626",
+   "name": "Craft - 12/70 flechette (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "5c0bc91486f7746ab41857a2",
+   "product": "5d6e6911a4b9361bd5780d52",
+   "continuous": false,
+   "location_id": 76600146
+  },
+  {
+   "recipe": "655b5af31273611d2462ab76",
+   "name": "Craft - 12/70 AP-20 armor-piercing slug (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "6179ad0a6e9dd54ac275e3f2",
+   "product": "5d6e68a8a4b9360b6c0d54e2",
+   "continuous": false,
+   "location_id": 76600147
+  },
+  {
+   "recipe": "655b5dc8065b076eb02c4b48",
+   "name": "Craft - BNTI Zhuk body armor (Press) (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "5c0e5edb86f77461f55ed1f7",
+   "continuous": false,
+   "location_id": 76600148
+  },
+  {
+   "recipe": "655b5ebc32b0b1645e6f54c9",
+   "name": "Craft - 6B23-2 body armor (Mountain Flora) (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": "5ae4495086f77443c122bc40",
+   "product": "5c0e57ba86f7747fa141986d",
+   "continuous": false,
+   "location_id": 76600149
+  },
+  {
+   "recipe": "655b5fd2975a7f3c734661a8",
+   "name": "Craft - First Spear Strandhogg plate carrier (Ranger Green) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": "5b478d0f86f7744d190d91b5",
+   "product": "61bcc89aef0f505f0c6cd0fc",
+   "continuous": false,
+   "location_id": 76600150
+  },
+  {
+   "recipe": "655b60774343a16d2e04766b",
+   "name": "Craft - ANA Tactical M2 plate carrier (EMR) (Lavatory)",
+   "area": 2,
+   "level": 3,
+   "quest": null,
+   "product": "5ab8dced86f774646209ec87",
+   "continuous": false,
+   "location_id": 76600151
+  },
+  {
+   "recipe": "655b63ac9db22d43ab42b70a",
+   "name": "Craft - Ars Arma A18 Skanda plate carrier (MultiCam) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": "5b47876e86f7744d1c353205",
+   "product": "5d5d87f786f77427997cfaef",
+   "continuous": false,
+   "location_id": 76600152
+  },
+  {
+   "recipe": "655b65fc1273611d2462ab77",
+   "name": "Craft - 5.11 Tactical TacTec plate carrier (Ranger Green) (Lavatory)",
+   "area": 2,
+   "level": 3,
+   "quest": "5ae4497b86f7744cf402ed00",
+   "product": "5b44cad286f77402a54ae7e5",
+   "continuous": false,
+   "location_id": 76600153
+  },
+  {
+   "recipe": "655b675e1f2b6843ec751fd6",
+   "name": "Craft - NPP KlASS Bagariy plate carrier (EMR) (Lavatory)",
+   "area": 2,
+   "level": 3,
+   "quest": "5c1141f386f77430ff393792",
+   "product": "628d0618d1ba6e4fa07ce5a4",
+   "continuous": false,
+   "location_id": 76600154
+  },
+  {
+   "recipe": "655b68b4769de97e1d62d117",
+   "name": "Craft - MSA ACH TC-2002 MICH Series helmet (Olive Drab) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5d5e9c74a4b9364855191c40",
+   "continuous": false,
+   "location_id": 76600155
+  },
+  {
+   "recipe": "655b6a50b71eeb7c4168c628",
+   "name": "Craft - Rys-T bulletproof helmet (Black) (Lavatory)",
+   "area": 2,
+   "level": 3,
+   "quest": "60e71b62a0beca400d69efc4",
+   "product": "5f60c74e3b85f6263c145586",
+   "continuous": false,
+   "location_id": 76600156
+  },
+  {
+   "recipe": "655b6b641273611d2462ab78",
+   "name": "Craft - Scav backpack (Lavatory)",
+   "area": 2,
+   "level": 1,
+   "quest": null,
+   "product": "56e335e4d2720b6c058b456d",
+   "continuous": false,
+   "location_id": 76600157
+  },
+  {
+   "recipe": "655b6bc01f2b6843ec751fd7",
+   "name": "Craft - Eberlestock F5 Switchblade backpack (Dry Earth) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "5f5e467b0bc58666c37e7821",
+   "continuous": false,
+   "location_id": 76600158
+  },
+  {
+   "recipe": "655b6c381fe356507267b2f6",
+   "name": "Craft - Pilgrim tourist backpack (Lavatory)",
+   "area": 2,
+   "level": 3,
+   "quest": null,
+   "product": "59e763f286f7742ee57895da",
+   "continuous": false,
+   "location_id": 76600159
+  },
+  {
+   "recipe": "657fc79cfd86b9d9680c4a24",
+   "name": "Craft - 6B13 custom ballistic plates (Back) (Lavatory)",
+   "area": 2,
+   "level": 2,
+   "quest": null,
+   "product": "656efd66034e8e01c407f35c",
+   "continuous": false,
+   "location_id": 76600160
+  },
+  {
+   "recipe": "66575197464c4b4ba4671004",
+   "name": "Craft - Unlocked weapon crate (Rare) (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "665732e7ac60f009f270d1ef",
+   "continuous": false,
+   "location_id": 76600161
+  },
+  {
+   "recipe": "6666d7ea0b734650a91d0a42",
+   "name": "Craft - Unlocked valuables crate (Rare) (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "66573310a1657263d816a139",
+   "continuous": false,
+   "location_id": 76600162
+  },
+  {
+   "recipe": "6666d829a8298779fc40e537",
+   "name": "Craft - Unlocked supply crate (Rare) (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "665732f4464c4b4ba4670fa9",
+   "continuous": false,
+   "location_id": 76600163
+  },
+  {
+   "recipe": "6666d899eb78191c502350b2",
+   "name": "Craft - Unlocked equipment crate (Rare) (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "665730fa4de4820934746c48",
+   "continuous": false,
+   "location_id": 76600164
+  },
+  {
+   "recipe": "6671d4fef3bee343f5000703",
+   "name": "Craft - 2A2-(b-TG) stimulant injector (Medstation)",
+   "area": 7,
+   "level": 2,
+   "quest": "665eeca92f7aedcc900b0437",
+   "product": "66507eabf5ddb0818b085b68",
+   "continuous": false,
+   "location_id": 76600165
+  },
+  {
+   "recipe": "677d4db74ac9193862043ee9",
+   "name": "Craft - Toolset (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "590c2e1186f77425357b6124",
+   "continuous": false,
+   "location_id": 76600166
+  },
+  {
+   "recipe": "677d4fdb42cdfce74006f961",
+   "name": "Craft - Working LCD (Workbench)",
+   "area": 10,
+   "level": 2,
+   "quest": null,
+   "product": "5d1b304286f774253763a528",
+   "continuous": false,
+   "location_id": 76600167
+  },
+  {
+   "recipe": "67c9d447b53b0fcf1d0bb0ab",
+   "name": "Craft - Unlocked valuables crate (Rare) (Workbench) #2",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "66573310a1657263d816a139",
+   "continuous": false,
+   "location_id": 76600168
+  },
+  {
+   "recipe": "67c9d4b251ce173bff01eec7",
+   "name": "Craft - Unlocked supply crate (Rare) (Workbench) #2",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "665732f4464c4b4ba4670fa9",
+   "continuous": false,
+   "location_id": 76600169
+  },
+  {
+   "recipe": "67c9d5035be7fc94c806dee9",
+   "name": "Craft - Unlocked weapon crate (Rare) (Workbench) #2",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "665732e7ac60f009f270d1ef",
+   "continuous": false,
+   "location_id": 76600170
+  },
+  {
+   "recipe": "67c9d54b017035dd060bff5e",
+   "name": "Craft - Unlocked equipment crate (Rare) (Workbench) #2",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "665730fa4de4820934746c48",
+   "continuous": false,
+   "location_id": 76600171
+  },
+  {
+   "recipe": "67caf5c5bfe0242ab1032966",
+   "name": "Craft - Unlocked equipment crate (BattlePass 0) (Workbench)",
+   "area": 10,
+   "level": 1,
+   "quest": null,
+   "product": "67cad3226bf74131800752b7",
+   "continuous": false,
+   "location_id": 76600172
+  },
+  {
+   "recipe": "67da000f1556838cf90d1716",
+   "name": "Craft - SAS drive (Intelligence Center)",
+   "area": 11,
+   "level": 1,
+   "quest": null,
+   "product": "590c37d286f77443be3d7827",
+   "continuous": false,
+   "location_id": 76600173
+  },
+  {
+   "recipe": "67da01179cbeb8d6f4011961",
+   "name": "Craft - Secure magnetic tape cassette (Intelligence Center)",
+   "area": 11,
+   "level": 1,
+   "quest": null,
+   "product": "61bf7c024770ee6f9c6b8b53",
+   "continuous": false,
+   "location_id": 76600174
+  },
+  {
+   "recipe": "67da0223078f1947650d7bb7",
+   "name": "Craft - TerraGroup Labs access keycard (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": null,
+   "product": "5c94bbff86f7747ee735c08f",
+   "continuous": false,
+   "location_id": 76600175
+  },
+  {
+   "recipe": "67da02e9078f1947650d7bb8",
+   "name": "Craft - TerraGroup \"Blue Folders\" materials (Intelligence Center)",
+   "area": 11,
+   "level": 2,
+   "quest": null,
+   "product": "6389c8c5dbfd5e4b95197e6b",
+   "continuous": false,
+   "location_id": 76600176
+  },
+  {
+   "recipe": "67da04db9cbeb8d6f4011962",
+   "name": "Craft - TerraGroup Labs keycard (Red) (Intelligence Center)",
+   "area": 11,
+   "level": 3,
+   "quest": null,
+   "product": "5c1d0efb86f7744baf2e7b7b",
+   "continuous": false,
+   "location_id": 76600177
+  },
+  {
+   "recipe": "67da05c8078f1947650d7bb9",
+   "name": "Craft - TerraGroup Labs keycard (Green) (Intelligence Center)",
+   "area": 11,
+   "level": 3,
+   "quest": null,
+   "product": "5c1d0dc586f7744baf2e7b79",
+   "continuous": false,
+   "location_id": 76600178
+  },
+  {
+   "recipe": "67f4ebb7d0fb51b8c705e80e",
+   "name": "Craft - Bottle of water (0.6L) (Water Collector)",
+   "area": 6,
+   "level": 1,
+   "quest": null,
+   "product": "5448fee04bdc2dbc018b4567",
+   "continuous": false,
+   "location_id": 76600179
+  },
+  {
+   "recipe": "67f4ec521d41954d4f09a9c8",
+   "name": "Craft - Aquamari water bottle with filter (Water Collector)",
+   "area": 6,
+   "level": 2,
+   "quest": null,
+   "product": "5c0fa877d174af02a012e1cf",
+   "continuous": false,
+   "location_id": 76600180
+  },
+  {
+   "recipe": "67f4ec82690e0a541a021d3d",
+   "name": "Craft - Emergency Water Ration (Water Collector)",
+   "area": 6,
+   "level": 2,
+   "quest": null,
+   "product": "60098b1705871270cd5352a1",
+   "continuous": false,
+   "location_id": 76600181
+  },
+  {
+   "recipe": "6839a4b18b47de9b76007028",
+   "name": "Craft - TheAKGuy AK-50 .50 BMG sniper rifle (Workbench)",
+   "area": 10,
+   "level": 3,
+   "quest": "684009026ceedc792c09b2a7",
+   "product": "67d0576f29f580ebc10efd08",
+   "continuous": false,
+   "location_id": 76600182
   }
  ],
  "items": [

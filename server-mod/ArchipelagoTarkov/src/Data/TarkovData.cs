@@ -20,7 +20,11 @@ public sealed class TarkovData
     [JsonPropertyName("kills")] public List<KillDef> Kills { get; set; } = [];
     [JsonPropertyName("bosses")] public List<BossDef> Bosses { get; set; } = [];
     [JsonPropertyName("loot")] public List<LootDef> Loot { get; set; } = [];
+    [JsonPropertyName("crafts")] public List<CraftDef> Crafts { get; set; } = [];
     [JsonPropertyName("items")] public List<ItemDef> Items { get; set; } = [];
+
+    /// <summary>Craftsanity: hideout recipe id -> its check.</summary>
+    [JsonIgnore] public Dictionary<string, CraftDef> CraftsByRecipe { get; private set; } = new();
 
     /// <summary>Lootsanity: original item template id -> its check.</summary>
     [JsonIgnore] public Dictionary<string, LootDef> LootByTpl { get; private set; } = new();
@@ -102,6 +106,12 @@ public sealed class TarkovData
             LootByStandIn[l.StandIn] = l;
             LootLocationIds.Add(l.LocationId);
             LocationNames[l.LocationId] = l.Name;
+        }
+
+        foreach (var c in Crafts)
+        {
+            CraftsByRecipe[c.Recipe] = c;
+            LocationNames[c.LocationId] = c.Name;
         }
 
         foreach (var m in Maps)
@@ -190,6 +200,18 @@ public sealed class BossDef
     [JsonPropertyName("role")] public string Role { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("maps")] public List<string> Maps { get; set; } = [];
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class CraftDef
+{
+    [JsonPropertyName("recipe")] public string Recipe { get; set; } = "";
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("area")] public int Area { get; set; }
+    [JsonPropertyName("level")] public int Level { get; set; }
+    [JsonPropertyName("quest")] public string? Quest { get; set; }
+    /// <summary>The template the recipe produces (what the first craft does not give).</summary>
+    [JsonPropertyName("product")] public string Product { get; set; } = "";
     [JsonPropertyName("location_id")] public long LocationId { get; set; }
 }
 

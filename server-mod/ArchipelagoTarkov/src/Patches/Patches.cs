@@ -1,4 +1,5 @@
 using System.Reflection;
+using ArchipelagoTarkov.Data;
 using ArchipelagoTarkov.Game;
 using ArchipelagoTarkov.Session;
 using HarmonyLib;
@@ -8,6 +9,8 @@ using SPTarkov.Server.Core.Controllers;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
+using SPTarkov.Server.Core.Models.Eft.Hideout;
+using SPTarkov.Server.Core.Models.Eft.ItemEvent;
 using SPTarkov.Server.Core.Models.Eft.Match;
 using SPTarkov.Server.Core.Routers;
 using LocationPath = SPTarkov.Server.Core.Models.Eft.Common.Tables.Path;
@@ -32,7 +35,7 @@ public static class PatchInstaller
     [
         typeof(LocationController), typeof(TraderHelper), typeof(LocationLifecycleService),
         typeof(ProfileCallbacks), typeof(EventOutputHolder), typeof(ProfileController), typeof(GameCallbacks),
-        typeof(BotController),
+        typeof(BotController), typeof(TraderAssortHelper), typeof(HideoutController),
     ];
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Ready = new();
@@ -78,6 +81,8 @@ public static class PatchInstaller
             new ScavRegeneratePatch(),
             new GameStartPatch(),
             new BotGeneratePatch(),
+            new TraderAssortPatch(),
+            new TakeProductionPatch(),
         ];
 
         foreach (var patch in patches)
@@ -296,6 +301,135 @@ public class BotGeneratePatch : AbstractPatch
         {
             SessionManager.Instance?.LogError($"bot generation: {ex}");
             return bots!;
+        }
+    }
+}
+
+/// <summary>Trader assort requests (and purchases, which read the same assort): randomize the shop when the slot asks.</summary>
+public class TraderAssortPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderAssortHelper), nameof(TraderAssortHelper.GetAssort));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, MongoId __1, ref TraderAssort __result)
+    {
+        try
+        {
+            var manager = SessionManager.Instance;
+            var session = manager?.Get(__0.ToString());
+            if (manager is null || session is null || __result is null)
+            {
+                return;
+            }
+
+            string mode;
+            bool everyRestock;
+            int seed;
+            lock (session)
+            {
+                if (!session.IsGatedTrader(__1.ToString()) || (mode = session.ShopMode) == "vanilla")
+                {
+                    return;
+                }
+
+                everyRestock = session.ShopEveryRestock;
+                seed = session.ShopSeed;
+            }
+
+            __result = manager.Shops.Randomize(__result, __1.ToString(), mode, everyRestock, seed, manager.Data);
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"trader assort: {ex}");
+        }
+    }
+}
+
+/// <summary>Hideout "take production": craftsanity takes the first craft of each recipe's product away and sends the check.</summary>
+public class TakeProductionPatch : AbstractPatch
+{
+    public sealed record CraftState(ApSession Session, CraftDef Craft, HashSet<string> ItemsBefore);
+
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(HideoutController), nameof(HideoutController.TakeProduction));
+
+    [PatchPrefix]
+    public static void Prefix(PmcData __0, HideoutTakeProductionRequestData __1, MongoId __2, ref CraftState? __state)
+    {
+        try
+        {
+            var session = SessionManager.Instance?.Get(__2.ToString());
+            if (session is null || __0?.Inventory?.Items is null || __1 is null)
+            {
+                return;
+            }
+
+            lock (session)
+            {
+                if (session.CraftTarget(__1.RecipeId.ToString()) is { } craft)
+                {
+                    __state = new CraftState(session, craft, __0.Inventory.Items.Select(i => i.Id.ToString()).ToHashSet());
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"take production (before): {ex}");
+        }
+    }
+
+    [PatchPostfix]
+    public static void Postfix(PmcData __0, MongoId __2, ItemEventRouterResponse __result, CraftState? __state)
+    {
+        if (__state is null || __result is null || __0?.Inventory?.Items is not { } items)
+        {
+            return;
+        }
+
+        try
+        {
+            if (__result.Warnings is { Count: > 0 })
+            {
+                return; // the craft wasn't collected
+            }
+
+            // The product SPT just added (stacks or a preset with its parts); tools given back are left alone.
+            var removed = items.Where(i => !__state.ItemsBefore.Contains(i.Id.ToString())
+                                           && i.Template.ToString() == __state.Craft.Product)
+                .Select(i => i.Id.ToString()).ToHashSet();
+            if (removed.Count == 0)
+            {
+                return;
+            }
+
+            bool grew;
+            do
+            {
+                grew = false;
+                foreach (var item in items)
+                {
+                    if (item.ParentId != null && removed.Contains(item.ParentId) && removed.Add(item.Id.ToString()))
+                    {
+                        grew = true;
+                    }
+                }
+            } while (grew);
+
+            items.RemoveAll(i => removed.Contains(i.Id.ToString()));
+            if (__result.ProfileChanges?.TryGetValue(__2, out var change) == true && change?.Items?.NewItems is { } newItems)
+            {
+                newItems.RemoveAll(i => removed.Contains(i.Id.ToString()));
+            }
+
+            lock (__state.Session)
+            {
+                __state.Session.RecordCraft(__state.Craft);
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"take production: {ex}");
         }
     }
 }

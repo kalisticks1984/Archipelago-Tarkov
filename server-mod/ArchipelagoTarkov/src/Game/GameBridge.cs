@@ -297,6 +297,14 @@ public class GameBridge(
                 yield return loot.LocationId;
             }
         }
+
+        foreach (var recipe in state.CraftsDone)
+        {
+            if (data.CraftsByRecipe.TryGetValue(recipe, out var craft))
+            {
+                yield return craft.LocationId;
+            }
+        }
     }
 
     public QuestStatusEnum? QuestState(string profileId, string questId)

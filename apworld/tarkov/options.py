@@ -144,6 +144,39 @@ class LootsanityProgression(Toggle):
     display_name = "Lootsanity Progression"
 
 
+class Craftsanity(Toggle):
+    """The first time you finish each hideout recipe is a check (about 180 recipes). That first craft gives no item,
+    only the check; every later craft of the recipe is normal. Recipes are in logic once their station level can be
+    built and any quest that unlocks them can be done."""
+    display_name = "Craftsanity"
+
+
+class ShopRandomizer(Choice):
+    """Randomize what the seven main traders sell. Shop items are never checks.
+
+    vanilla: normal trader stock.
+    same_category: each offer becomes a random item from the same handbook category (ammo stays ammo).
+    anything: each offer becomes any item a trader sells, or a loose item such as a key, barter item or meds.
+    Prices follow the item's value; purchase limits are random, smaller for valuable items and larger at higher
+    loyalty levels. The Lab keycard and Peacekeeper's/Skier's currency exchange are never changed."""
+    display_name = "Shop Randomizer"
+    option_vanilla = 0
+    option_same_category = 1
+    option_anything = 2
+    default = 0
+
+
+class ShopReshuffle(Choice):
+    """When randomized shops change.
+
+    per_seed: each trader's random stock is decided once and stays the same for the whole game.
+    every_restock: new random stock every time the trader restocks."""
+    display_name = "Shop Reshuffle"
+    option_per_seed = 0
+    option_every_restock = 1
+    default = 0
+
+
 class LevelPacing(Choice):
     """How the logic estimates the player level you can reach.
     Logic assumes you need more maps unlocked before high level quests and loyalty levels are expected of you.
@@ -213,6 +246,9 @@ class TarkovOptions(PerGameCommonOptions):
     boss_checks: BossChecks
     lootsanity: Lootsanity
     lootsanity_progression: LootsanityProgression
+    craftsanity: Craftsanity
+    shop_randomizer: ShopRandomizer
+    shop_reshuffle: ShopReshuffle
     lock_flea_market: LockFleaMarket
     level_pacing: LevelPacing
     trap_percentage: TrapPercentage

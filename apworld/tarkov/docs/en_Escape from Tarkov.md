@@ -32,6 +32,9 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
 - Lootsanity (optional): bringing out an item type for the first time, for the categories you choose. In each raid the
   first spawn of an unchecked type is an *Archipelago Item*; extract with it (or keep it in your secure container if
   you die) to send the check. You don't get the original item.
+- Craftsanity (optional): the first craft of each hideout recipe. That first craft gives no item.
+
+Traders' shops can also be randomized (`shop_randomizer`); what you buy is never a check.
 
 ## What items can I receive?
 

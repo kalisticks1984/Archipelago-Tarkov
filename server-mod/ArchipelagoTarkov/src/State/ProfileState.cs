@@ -56,6 +56,8 @@ public sealed class ProfileState
     [JsonPropertyName("raidVictimsCounted")] public HashSet<string> RaidVictimsCounted { get; set; } = new();
     /// <summary>Lootsanity: original item templates whose Archipelago Item was brought out of a raid.</summary>
     [JsonPropertyName("lootFound")] public HashSet<string> LootFound { get; set; } = new();
+    /// <summary>Craftsanity: hideout recipes finished (and collected) at least once.</summary>
+    [JsonPropertyName("craftsDone")] public HashSet<string> CraftsDone { get; set; } = new();
     [JsonPropertyName("goalSent")] public bool GoalSent { get; set; }
     [JsonPropertyName("collectorWarned")] public bool CollectorWarned { get; set; }
 
@@ -156,6 +158,7 @@ public sealed class ProfileState
         BossesKilled.Clear();
         RaidVictimsCounted.Clear();
         LootFound.Clear();
+        CraftsDone.Clear();
         GoalSent = false;
         AutoConnect = false;
     }

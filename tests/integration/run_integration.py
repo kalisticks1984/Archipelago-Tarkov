@@ -57,6 +57,24 @@ for _e in DATA["extracts"]:
 for _k in DATA["kills"] + DATA["bosses"]:
     LOC_IDS[_k["name"]] = _k["location_id"]
 LOOT_BY_STAND_IN = {_r["stand_in"]: _r for _r in DATA["loot"]}
+CRAFTS = {_c["recipe"]: _c for _c in DATA["crafts"]}
+USD = "5696686a4bdc2da3298b456a"
+
+
+def handbook_category():
+    """Item template -> top-level handbook category id (from SPT's database), like the shop randomizer uses."""
+    hb = json.load(open(os.path.join(SPT, "SPT_Data", "database", "templates", "handbook.json"), encoding="utf-8"))
+    parent = {c["Id"]: c.get("ParentId") for c in hb["Categories"]}
+
+    def top(cat):
+        while parent.get(cat):
+            cat = parent[cat]
+        return cat
+    return {i["Id"]: top(i["ParentId"]) for i in hb["Items"]}
+
+
+def vanilla_assort(trader_id):
+    return json.load(open(os.path.join(SPT, "SPT_Data", "database", "traders", trader_id, "assort.json"), encoding="utf-8"))
 
 _victim_seq = [0]
 
@@ -200,7 +218,8 @@ def main():
     print("generating multiworld...", flush=True)
     multidata = generate({
         "Runner": {"death_link": "true", "goal_quest_count": 5, "extracts_per_map": 2, "trap_percentage": 0,
-                   "lootsanity": ["barter", "provisions"]},
+                   "lootsanity": ["barter", "provisions"], "craftsanity": True,
+                   "shop_randomizer": "same_category", "shop_reshuffle": "per_seed"},
         "Buddy": {},
         "Kitted": {"starting_kit": "replace", "starting_kit_quality": "geared", "goal_quest_count": 5},
         "Kitted2": {"starting_kit": "replace", "starting_kit_quality": "scrappy", "goal_quest_count": 5},
@@ -649,6 +668,52 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         assert not stand_ins_in(c.pmc()["Inventory"]["items"]), "Archipelago Items must not reach the stash"
     _()
 
+    # ---------------------------------------------------------------- shop randomizer (Runner: same_category, per seed)
+    def assort(trader_key):
+        return c.call(f"/client/trading/api/getTraderAssort/{TRADERS[trader_key]}")
+
+    @step("shops: randomized for the seed, same category, every offer limited, currency exchange kept")
+    def _():
+        shop = assort("prapor")
+        vanilla = {i["_id"]: i for i in vanilla_assort(TRADERS["prapor"])["items"] if i.get("parentId") == "hideout"}
+        roots = [i for i in shop["items"] if i.get("parentId") == "hideout"]
+        assert roots and all(r["_id"] in vanilla for r in roots), "offers keep their ids"
+        changed = [r for r in roots if r["_tpl"] != vanilla[r["_id"]]["_tpl"]]
+        assert len(changed) > len(roots) // 2, f"only {len(changed)}/{len(roots)} offers changed"
+        category = handbook_category()
+        wrong = [r["_tpl"] for r in changed if category.get(r["_tpl"]) != category.get(vanilla[r["_id"]]["_tpl"])]
+        assert not wrong, f"{len(wrong)} offers changed category"
+        assert all((r.get("upd") or {}).get("BuyRestrictionMax", 0) >= 1 for r in changed), "every offer has a limit"
+        assert all(r["_id"] in shop["barter_scheme"] for r in roots)
+        assert assort("prapor") == shop, "the same shop on every request (per seed)"
+        pk = [i for i in vanilla_assort(TRADERS["peacekeeper"])["items"] if i.get("parentId") == "hideout" and i["_tpl"] == USD]
+        if pk:
+            pk_shop = {i["_id"]: i for i in assort("peacekeeper")["items"]}
+            assert all(pk_shop.get(i["_id"], {}).get("_tpl") == USD for i in pk), "the dollar exchange must stay"
+    _()
+
+    @step("shops: buying an offer gives the randomized item")
+    def _():
+        shop = assort("prapor")
+        vanilla = {i["_id"]: i for i in vanilla_assort(TRADERS["prapor"])["items"] if i.get("parentId") == "hideout"}
+        money = sorted((i for i in c.pmc()["Inventory"]["items"] if i["_tpl"] == ROUBLES),
+                       key=lambda i: -(i.get("upd") or {}).get("StackObjectsCount", 1))[0]
+        cash = (money.get("upd") or {}).get("StackObjectsCount", 1)
+        offer = next(r for r in shop["items"] if r.get("parentId") == "hideout"
+                     and r["_tpl"] != vanilla[r["_id"]]["_tpl"]
+                     and shop["barter_scheme"][r["_id"]][0][0]["_tpl"] == ROUBLES
+                     and shop["barter_scheme"][r["_id"]][0][0]["count"] <= cash
+                     and shop["loyal_level_items"].get(r["_id"], 1) == 1)
+        price = shop["barter_scheme"][offer["_id"]][0][0]["count"]
+        result = c.item_event([{"Action": "TradingConfirm", "type": "buy_from_trader", "tid": TRADERS["prapor"],
+                                "item_id": offer["_id"], "count": 1, "scheme_id": 0,
+                                "scheme_items": [{"id": money["_id"], "count": price}]}])
+        new = result["profileChanges"][c.session]["items"]["new"]
+        assert any(i["_tpl"] == offer["_tpl"] for i in new), (offer["_tpl"], [i["_tpl"] for i in new])
+        assert not any(i["_tpl"] == vanilla[offer["_id"]]["_tpl"] for i in new
+                       if vanilla[offer["_id"]]["_tpl"] != offer["_tpl"]), "never the original item"
+    _()
+
     @step("a death in raid sends DeathLink to the multiworld")
     def _():
         mark = buddy.mark()
@@ -785,6 +850,38 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         json.dump(prof, open(path, "w"))
         spt_restart(os.path.join(WORK, "spt3.log"))
         watcher.wait_checked(LOC_IDS["Hideout - Generator Level 1"], timeout=60)
+    _()
+
+    @step("craftsanity: the first craft of a recipe sends its check and gives no item")
+    def _():
+        recipes = {r["_id"]: r for r in json.load(open(os.path.join(SPT, "SPT_Data", "database", "hideout",
+                                                                     "production.json"), encoding="utf-8"))["recipes"]}
+        craft = next(cr for cr in DATA["crafts"] if cr["area"] == 10 and cr["level"] == 1 and not cr["quest"])
+        recipe = recipes[craft["recipe"]]
+        sh(f"{BIN}/spt-stop.sh")
+        path = os.path.join(SPT, "user", "profiles", f"{c.session}.json")
+        prof = json.load(open(path, encoding="utf-8"))
+        pmc = prof["characters"]["pmc"]
+        for area in pmc["Hideout"]["Areas"]:
+            if area["type"] == craft["area"]:
+                area["level"] = max(area.get("level", 0), craft["level"])
+                area["constructing"] = False
+        t = recipe["productionTime"]
+        pmc["Hideout"].setdefault("Production", {})[craft["recipe"]] = {
+            "Products": [], "Progress": t, "inProgress": True, "StartTimestamp": int(time.time()) - t - 60,
+            "SkipTime": 0, "ProductionTime": t, "GivenItemsInStart": [], "Interrupted": False,
+            "needFuelForAllProductionTime": False, "NeedFuelForAllProductionTime": False, "RecipeId": craft["recipe"],
+        }
+        json.dump(prof, open(path, "w", encoding="utf-8"))
+        spt_restart(os.path.join(WORK, "spt-craft.log"))
+        before = {i["_id"] for i in c.pmc()["Inventory"]["items"]}
+        result = c.item_event([{"Action": "HideoutTakeProduction", "recipeId": craft["recipe"],
+                                "timestamp": int(time.time())}])
+        watcher.wait_checked(craft["location_id"], timeout=30)
+        new = result["profileChanges"][c.session]["items"]["new"]
+        assert not any(i["_tpl"] == craft["product"] for i in new), "the first craft must not give its product"
+        assert not any(i["_tpl"] == craft["product"] and i["_id"] not in before for i in c.pmc()["Inventory"]["items"])
+        assert craft["recipe"] in wait(lambda: state().get("craftsDone"), what="craft saved")
     _()
 
     @step("items stuck in Archipelago chat messages (1.1.0 and older) are sent again as System messages")

@@ -13,8 +13,8 @@ from .items import (FILLER_WEIGHTS, FLEA_ITEM, GAME_NAME, MAP_ITEMS, TRADER_ITEM
                     item_name_groups, item_name_to_id, item_table)
 from .logic import (ALL_MAPS, FLEA_MIN_LEVEL, LAB_KEYCARD_SOURCES, WEAPON_PARTS_TRADERS, Requirement, RequirementBuilder,
                     maps_needed_for_level)
-from .options import (LOOT_CATEGORY_KEYS, SHORT_KILL_LIMITS, Goal, KillMilestones, StartingMap, StartingTraders,
-                      TarkovOptions)
+from .options import (LOOT_CATEGORY_KEYS, SHORT_KILL_LIMITS, Goal, KillMilestones, ShopRandomizer, StartingMap,
+                      StartingTraders, TarkovOptions)
 
 logger = logging.getLogger("Escape from Tarkov")
 
@@ -51,6 +51,8 @@ def _build_location_table() -> Dict[str, int]:
         table[b["name"]] = b["location_id"]
     for r in data["loot"]:
         table[r["name"]] = r["location_id"]
+    for c in data["crafts"]:
+        table[c["name"]] = c["location_id"]
     return table
 
 
@@ -109,6 +111,7 @@ class TarkovWorld(World):
         "Kills": {k["name"] for k in load_data()["kills"]},
         "Bosses": {b["name"] for b in load_data()["bosses"]},
         "Loot": {r["name"] for r in load_data()["loot"]},
+        "Crafts": {c["name"] for c in load_data()["crafts"]},
         **{f"Loot - {key.replace('_', ' ').title()}": {r["name"] for r in load_data()["loot"] if r["category"] == key}
            for key in LOOT_CATEGORY_KEYS},
     }
@@ -124,6 +127,8 @@ class TarkovWorld(World):
         self.kill_checks: List[dict] = []
         self.boss_checks: List[dict] = []
         self.loot_checks: List[dict] = []
+        self.craft_checks: List[dict] = []
+        self.shop_seed = 0
         self.goal_quest_count = 0
 
     # ------------------------------------------------------------------ generation steps
@@ -162,6 +167,9 @@ class TarkovWorld(World):
             self.boss_checks = list(data["bosses"])
         categories = set(self.options.lootsanity.value)
         self.loot_checks = [r for r in data["loot"] if r["category"] in categories]
+        if self.options.craftsanity:
+            self.craft_checks = list(data["crafts"])
+        self.shop_seed = self.random.getrandbits(31)
 
         if self.options.goal == Goal.option_quest_count:
             if not self.quest_checks:
@@ -184,13 +192,24 @@ class TarkovWorld(World):
                 logger.warning(f"Escape from Tarkov ({self.player_name}): too few checks are reachable at the start; "
                                f"enabling hideout checks.")
 
+    @property
+    def shops_randomized(self) -> bool:
+        return self.options.shop_randomizer != ShopRandomizer.option_vanilla
+
+    def craft_requirement(self, craft: dict) -> Requirement:
+        """The station level (with everything it needs) and, for quest-unlocked recipes, that quest."""
+        req = self.requirements.hideout_level(craft["area"], craft["level"])
+        if craft["quest"]:
+            req = req.merge(self.requirements.quest(craft["quest"]))
+        return req
+
     def _count_sphere_zero(self, start_state) -> int:
         traders, maps, _ = start_state
         pacing = self.options.level_pacing.value
 
         def ok(req: Requirement) -> bool:
             parts_ok = (not req.weapon_parts or not self.options.lock_flea_market.value
-                        or WEAPON_PARTS_TRADERS <= traders)
+                        or (not self.shops_randomized and WEAPON_PARTS_TRADERS <= traders))
             keycard_ok = frozenset({"labs"}) not in req.clauses  # never true at the start: The Lab is not a start map
             return (req.traders <= traders
                     and all(clause & maps for clause in req.clauses)
@@ -203,6 +222,7 @@ class TarkovWorld(World):
         count += sum(1 for k in self.kill_checks if ok(kill_requirement(k)))
         count += sum(1 for b in self.boss_checks if ok(boss_requirement(b)))
         count += sum(1 for r in self.loot_checks if ok(loot_requirement(r)))
+        count += sum(1 for c in self.craft_checks if ok(self.craft_requirement(c)))
         return count
 
     def create_regions(self) -> None:
@@ -221,6 +241,8 @@ class TarkovWorld(World):
             tarkov.locations.append(TarkovLocation(self.player, k["name"], k["location_id"], tarkov))
         for b in self.boss_checks:
             tarkov.locations.append(TarkovLocation(self.player, b["name"], b["location_id"], tarkov))
+        for c in self.craft_checks:
+            tarkov.locations.append(TarkovLocation(self.player, c["name"], c["location_id"], tarkov))
         loot_excluded = not self.options.lootsanity_progression
         for r in self.loot_checks:
             location = TarkovLocation(self.player, r["name"], r["location_id"], tarkov)
@@ -266,7 +288,8 @@ class TarkovWorld(World):
             pool.append(self.create_item(FLEA_ITEM))
 
         total_locations = (len(self.quest_checks) + len(self.hideout_checks) + len(self.extract_checks)
-                           + len(self.kill_checks) + len(self.boss_checks) + len(self.loot_checks))
+                           + len(self.kill_checks) + len(self.boss_checks) + len(self.loot_checks)
+                           + len(self.craft_checks))
         # Loot checks that may only hold filler can't take the progression items.
         loot_excluded = len(self.loot_checks) if not self.options.lootsanity_progression else 0
         if len(pool) > total_locations - loot_excluded:
@@ -297,6 +320,8 @@ class TarkovWorld(World):
         all_map_items = list(MAP_ITEMS.values())
         flea_locked = bool(self.options.lock_flea_market.value)
         needs_parts = req.weapon_parts and flea_locked
+        # Randomized shops may not sell the parts: then only the Flea Market can be counted on.
+        shops_random = self.shops_randomized
         parts_traders = [TRADER_ITEMS[t] for t in sorted(WEAPON_PARTS_TRADERS)]
         # Anything that can only be done in The Lab needs a way to get its keycard.
         needs_keycard = frozenset({"labs"}) in req.clauses
@@ -313,7 +338,8 @@ class TarkovWorld(World):
         def rule(state: CollectionState) -> bool:
             if trader_items and not state.has_all(trader_items, player):
                 return False
-            if needs_parts and not (state.has(FLEA_ITEM, player) or state.has_all(parts_traders, player)):
+            if needs_parts and not (state.has(FLEA_ITEM, player)
+                                    or (not shops_random and state.has_all(parts_traders, player))):
                 return False
             if needs_keycard and not has_keycard_source(state):
                 return False
@@ -340,6 +366,8 @@ class TarkovWorld(World):
                 Requirement(clauses=frozenset({frozenset({e["map"]})})))
         for k in self.kill_checks:
             self.get_location(k["name"]).access_rule = self._rule(kill_requirement(k))
+        for c in self.craft_checks:
+            self.get_location(c["name"]).access_rule = self._rule(self.craft_requirement(c))
         loot_rules: Dict[Requirement, Callable[[CollectionState], bool]] = {}
         for r in self.loot_checks:
             req = loot_requirement(r)
@@ -378,6 +406,10 @@ class TarkovWorld(World):
             "kill_milestones": self.options.kill_milestones.current_key,
             "boss_checks": bool(self.options.boss_checks.value),
             "lootsanity": sorted(self.options.lootsanity.value),
+            "craftsanity": bool(self.options.craftsanity.value),
+            "shop_randomizer": self.options.shop_randomizer.current_key,
+            "shop_reshuffle": self.options.shop_reshuffle.current_key,
+            "shop_seed": self.shop_seed,
             "lock_flea_market": bool(self.options.lock_flea_market.value),
             "death_link": bool(self.options.death_link.value),
             "starting_map": self.start_map,

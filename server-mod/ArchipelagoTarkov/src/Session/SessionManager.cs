@@ -17,6 +17,7 @@ namespace ArchipelagoTarkov.Session;
 public class SessionManager(
     ISptLogger<SessionManager> logger,
     GameBridge game,
+    ShopRandomizer shops,
     CoreConfig coreConfig,
     IReadOnlyList<DependencyInjectionContainer> registrations
 ) : IOnLoad, IOnUpdate
@@ -31,6 +32,7 @@ public class SessionManager(
     private bool _loaded;
 
     public TarkovData Data => _data ?? throw new InvalidOperationException("Archipelago data not loaded");
+    public ShopRandomizer Shops => shops;
 
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {

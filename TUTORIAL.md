@@ -124,6 +124,9 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 | `boss_checks` | `true` | The first kill of each boss is a check (13: the Goons count as three) |
 | `lootsanity` | none | Item categories whose item types become checks: any of `barter`, `keys`, `medication`, `provisions`, `ammo`, `weapons`, `weapon_mods`, `gear`, `info`, `maps`, `special_equipment`, `money`. See [Lootsanity](#lootsanity) |
 | `lootsanity_progression` | `false` | Let loot checks hold progression items. Off by default: some items are very rare spawns |
+| `craftsanity` | `false` | The first craft of each hideout recipe (about 180) is a check. That first craft gives no item; later crafts are normal |
+| `shop_randomizer` | `vanilla` | Randomize the seven main traders' stock: `vanilla`, `same_category` (ammo stays ammo, meds stay meds) or `anything`. Not checks. See [Randomized shops](#randomized-shops) |
+| `shop_reshuffle` | `per_seed` | When randomized shops change: `per_seed` (fixed for the whole game) or `every_restock` |
 | `lock_flea_market` | `true` | The Flea Market is closed until you find *Flea Market Access* |
 | `level_pacing` | `normal` | How many maps the logic expects you to own before it asks for higher-level quests: `relaxed`, `normal` or `fast` |
 | `trap_percentage` | `10` | Percentage of filler items replaced by traps |
@@ -233,6 +236,27 @@ one spawn per type per raid is swapped; the rest of that type is normal loot.
   Items in loose loot and containers.
 - With the optional client plugin, Archipelago Items show the Archipelago symbol. Without it they look like a pack of
   bolts with a violet background.
+
+### Craftsanity
+
+With `craftsanity: true`, the first time you collect each hideout recipe sends a check. That first craft gives no item
+(the ingredients are spent and the multiworld gets the check); every later craft of the same recipe works as normal.
+Tools used by the craft are given back as usual. Recipes unlocked by a quest are in logic once that quest is.
+
+### Randomized shops
+
+`shop_randomizer` changes what Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger sell. Nothing you
+buy is a check.
+
+- `same_category`: each offer becomes another item from the same category (ammo stays ammo, meds stay meds).
+  `anything`: any item a trader sells, or a loose item such as a key, a barter item or meds.
+- Each offer keeps its loyalty level and any quest that unlocks it. Prices follow the item's value, in the trader's
+  currency.
+- Purchase limits are random: cheap items allow 20-100 per restock, the most valuable 1-2. Higher loyalty levels raise
+  them by 25% per level; loose ammo rounds get ten times more.
+- `shop_reshuffle: per_seed` keeps the same stock all game; `every_restock` rolls new stock at each trader restock.
+- The Lab keycard and Peacekeeper's and Skier's currency exchange never change. With randomized shops the logic
+  expects the Flea Market for the later Gunsmith quests' weapon parts.
 
 ### The random starting kit
 
