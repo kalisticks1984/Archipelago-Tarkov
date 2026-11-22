@@ -157,6 +157,7 @@ class ShopRandomizer(Choice):
     vanilla: normal trader stock.
     same_category: each offer becomes a random item from the same handbook category (ammo stays ammo).
     anything: each offer becomes any item a trader sells, or a loose item such as a key, barter item or meds.
+    Each offer becomes an item worth about the same as the one it replaces, so early loyalty levels stay modest.
     Prices follow the item's value; purchase limits are random, smaller for valuable items and larger at higher
     loyalty levels. The Lab keycard and Peacekeeper's/Skier's currency exchange are never changed."""
     display_name = "Shop Randomizer"
@@ -164,6 +165,15 @@ class ShopRandomizer(Choice):
     option_same_category = 1
     option_anything = 2
     default = 0
+
+
+class ShopStock(Range):
+    """With randomized shops: the percentage of each trader's offers that are in stock (the rest are removed).
+    The Lab keycard and currency exchange are always kept."""
+    display_name = "Shop Stock"
+    range_start = 10
+    range_end = 100
+    default = 40
 
 
 class ShopReshuffle(Choice):
@@ -249,6 +259,7 @@ class TarkovOptions(PerGameCommonOptions):
     craftsanity: Craftsanity
     shop_randomizer: ShopRandomizer
     shop_reshuffle: ShopReshuffle
+    shop_stock: ShopStock
     lock_flea_market: LockFleaMarket
     level_pacing: LevelPacing
     trap_percentage: TrapPercentage

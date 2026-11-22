@@ -80,12 +80,12 @@ _victim_seq = [0]
 
 
 def victim(side="Savage", role="assault"):
-    """One entry of the client's raid kill list, with a unique bot profile id. AccountId matters: SPT sometimes has a
+    """One entry of the client's raid kill list, with a unique bot profile id. AccountId and Location matter: SPT sometimes has a
     killed PMC message you and parses it."""
     _victim_seq[0] += 1
     return {"ProfileId": f"{0xA9000000 + _victim_seq[0]:024x}", "AccountId": str(1000000 + _victim_seq[0]),
             "Name": f"Bot{_victim_seq[0]}", "Side": side, "Role": role, "Time": "00:05:00", "Level": 10,
-            "PrestigeLevel": 0, "BodyPart": "Head", "Weapon": "", "Distance": 20.0}
+            "PrestigeLevel": 0, "BodyPart": "Head", "Weapon": "", "Distance": 20.0, "Location": "bigmap"}
 
 TRADERS = {t["key"]: t["id"] for t in DATA["traders"]}
 _TEMPLATES = None
@@ -297,6 +297,15 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         maps = enabled_maps(c)
         assert maps == {"sandbox", "sandbox_high"}, maps
         assert flea_banned(c)
+    _()
+
+    @step("the trader list a linked client gets never marks the main traders unlocked by default")
+    def _():
+        # The client treats a trader as unlocked if its profile flag OR this setting is true (vanilla: six of seven).
+        bases = c.call("/client/trading/api/traderSettings")
+        main = [b for b in bases if b["_id"] in TRADERS.values()]
+        assert len(main) == len(TRADERS), [b["_id"] for b in bases]
+        assert not [b["nickname"] for b in main if b.get("unlockedByDefault")], [b["nickname"] for b in main]
     _()
 
     @step("transits to locked maps are switched off in the map list and in raid")
@@ -637,6 +646,16 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         assert not bot_types & {t["tpl"] for t in types}, "a type got a second Archipelago Item in the same raid"
         assert len(bot_types) == len(on_bots), "one Archipelago Item per type per raid (bots)"
 
+        tracker = c.call("/archipelago/client/tracker", method="GET")
+        assert tracker["linked"] and tracker["raidMap"] == "customs", tracker.get("raidMap")
+        first = tracker["maps"][0]
+        assert first["key"] == "customs" and first["current"], first
+        here = next(g for g in first["groups"] if g["title"] == "Archipelago Items this raid")
+        assert here["count"] == len(on_map) + len(on_bots), (here["count"], len(on_map), len(on_bots))
+        assert any(": in a " in e or ": on the ground" in e for e in here["entries"]), here["entries"][:5]
+        assert any(": carried by " in e for e in here["entries"]), here["entries"][:5]
+        assert any(g["title"] == "Next kill milestones" for g in tracker["anywhere"]), tracker["anywhere"]
+
         picked = [types[0], types[1]] if len(types) > 1 else [types[0]]
         profile = put_in_profile(c.pmc(), [t["stand_in"] for t in picked], "pockets")
         c.raid_end(start["serverId"], "Survived", exit_name="Smuggler's Boat", profile=profile)
@@ -678,8 +697,23 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         vanilla = {i["_id"]: i for i in vanilla_assort(TRADERS["prapor"])["items"] if i.get("parentId") == "hideout"}
         roots = [i for i in shop["items"] if i.get("parentId") == "hideout"]
         assert roots and all(r["_id"] in vanilla for r in roots), "offers keep their ids"
+        keep = {ROUBLES, USD, "569668774bdc2da2298b4568", "5c94bbff86f7747ee735c08f"}
+        # The client only gets offers at its loyalty level (1) and not locked behind a quest.
+        raw = vanilla_assort(TRADERS["prapor"])
+        quest_locked = {oid for group in json.load(open(os.path.join(SPT, "SPT_Data", "database", "traders",
+                        TRADERS["prapor"], "questassort.json"), encoding="utf-8")).values() for oid in group}
+        visible = {k for k, v in vanilla.items() if raw["loyal_level_items"].get(k, 1) <= 1 and k not in quest_locked}
+        randomizable = [v for k, v in vanilla.items() if k in visible and v["_tpl"] not in keep]
+        stocked = [r for r in roots if vanilla[r["_id"]]["_tpl"] not in keep]
+        assert 0.2 * len(randomizable) <= len(stocked) <= 0.65 * len(randomizable),             f"shop_stock 40%: {len(stocked)} of {len(randomizable)} offers in stock"
         changed = [r for r in roots if r["_tpl"] != vanilla[r["_id"]]["_tpl"]]
-        assert len(changed) > len(roots) // 2, f"only {len(changed)}/{len(roots)} offers changed"
+        assert len(changed) > len(stocked) // 2, f"only {len(changed)}/{len(stocked)} offers changed"
+        prices = {i["Id"]: i.get("Price") or 0 for i in json.load(open(os.path.join(
+            SPT, "SPT_Data", "database", "templates", "handbook.json"), encoding="utf-8"))["Items"]}
+        ratios = sorted(prices.get(r["_tpl"], 0) / prices[vanilla[r["_id"]]["_tpl"]] for r in changed
+                        if prices.get(vanilla[r["_id"]]["_tpl"]))
+        median = ratios[len(ratios) // 2]
+        assert 0.4 <= median <= 2.5, f"replacements should be worth about the same (median ratio {median:.2f})"
         category = handbook_category()
         wrong = [r["_tpl"] for r in changed if category.get(r["_tpl"]) != category.get(vanilla[r["_id"]]["_tpl"])]
         assert not wrong, f"{len(wrong)} offers changed category"

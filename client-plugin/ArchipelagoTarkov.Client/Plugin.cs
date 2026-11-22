@@ -57,6 +57,12 @@ namespace ArchipelagoTarkov.Client
                 ArchipelagoIcons.Install(Logger);
             }
 
+            TrackerWindow.Hotkey = Config.Bind("Tracker", "Toggle tracker", new KeyboardShortcut(KeyCode.F8),
+                "Show or hide the Archipelago tracker (checks left on each map, and where this raid's Archipelago Items are).");
+            TrackerWindow.ShowOnTasks = Config.Bind("Tracker", "Show on the Tasks screen", true,
+                "Open the tracker by itself while the Tasks screen is open.");
+            gameObject.AddComponent<TrackerWindow>();
+
             Logger.LogInfo($"Archipelago for Tarkov client {Version} loaded");
         }
 

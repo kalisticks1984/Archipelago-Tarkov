@@ -50,13 +50,14 @@ public class ShopRandomizer(ISptLogger<ShopRandomizer> logger, TradersTable trad
 
     /// <summary>Returns a randomized copy of a trader's assort; the original is never changed.</summary>
     public TraderAssort Randomize(TraderAssort assort, string traderId, string mode, bool everyRestock, int seed,
-        TarkovData data)
+        int stockPercent, TarkovData data)
     {
         EnsurePool(data);
         var currency = traders.GetTrader(new MongoId(traderId))?.Base?.Currency ?? CurrencyType.RUB;
         var currencyTpl = currency.GetCurrencyTpl();
         var restock = everyRestock ? (long)(assort.NextResupply ?? 0) : 0;
         var pool = mode == "anything" ? _anythingPool! : _traderPool!;
+        stockPercent = Math.Clamp(stockPercent, 1, 100);
 
         var childrenOf = assort.Items.Where(i => i.ParentId != null).GroupBy(i => i.ParentId!)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -71,14 +72,22 @@ public class ShopRandomizer(ISptLogger<ShopRandomizer> logger, TradersTable trad
             PoolEntry? pick = null;
             if (!Currencies.Contains(tpl) && tpl != LabKeycard)
             {
+                var rng = new Random(StableSeed(seed, traderId, root.Id.ToString(), restock));
+                if (rng.NextDouble() * 100 >= stockPercent)
+                {
+                    loyalty.Remove(root.Id); // out of stock in this shop
+                    continue;
+                }
+
                 var category = _categoryOf!.GetValueOrDefault(tpl);
                 var candidates = mode == "same_category" && category != null
                     ? _byCategory!.GetValueOrDefault(category)
                     : pool;
                 if (candidates is { Count: > 0 })
                 {
-                    var rng = new Random(StableSeed(seed, traderId, root.Id.ToString(), restock));
-                    pick = candidates[rng.Next(candidates.Count)];
+                    // About as valuable as the offer it replaces, so loyalty level 1 stays modest.
+                    var value = handbook.GetTemplatePriceForItems(WithDescendants(root, childrenOf).ToList());
+                    pick = PickByValue(candidates, value, rng);
                     var price = Math.Max(1, Math.Ceiling(handbook.FromRoubles(pick.PriceRoubles, currencyTpl)));
                     var limit = PurchaseLimit(pick, level, rng);
                     items.AddRange(Instantiate(pick, root, limit, seed, restock));
@@ -102,6 +111,43 @@ public class ShopRandomizer(ISptLogger<ShopRandomizer> logger, TradersTable trad
             BarterScheme = schemes,
             LoyalLevelItems = loyalty,
         };
+    }
+
+    /// <summary>
+    /// A random entry worth about <paramref name="value"/>: half to double it, widening to a third..3x and a fifth..5x
+    /// when nothing fits; otherwise one of the closest in value. <paramref name="sorted"/> is ordered by price.
+    /// </summary>
+    private static PoolEntry PickByValue(List<PoolEntry> sorted, double value, Random rng)
+    {
+        if (value <= 0)
+        {
+            return sorted[rng.Next(sorted.Count)];
+        }
+
+        foreach (var factor in new[] { 2.0, 3.0, 5.0 })
+        {
+            var low = LowerBound(sorted, value / factor);
+            var high = LowerBound(sorted, value * factor + 0.0001);
+            if (high > low)
+            {
+                return sorted[low + rng.Next(high - low)];
+            }
+        }
+
+        var closest = sorted.OrderBy(e => Math.Abs(Math.Log(Math.Max(1, e.PriceRoubles) / value))).Take(5).ToList();
+        return closest[rng.Next(closest.Count)];
+    }
+
+    private static int LowerBound(List<PoolEntry> sorted, double price)
+    {
+        int lo = 0, hi = sorted.Count;
+        while (lo < hi)
+        {
+            var mid = (lo + hi) / 2;
+            if (sorted[mid].PriceRoubles < price) lo = mid + 1; else hi = mid;
+        }
+
+        return lo;
     }
 
     /// <summary>
@@ -251,9 +297,10 @@ public class ShopRandomizer(ISptLogger<ShopRandomizer> logger, TradersTable trad
                 anything.Add(new PoolEntry(category, [single], entry.Price ?? 0, false));
             }
 
-            _traderPool = traderPool;
-            _anythingPool = anything;
-            _byCategory = traderPool.GroupBy(e => e.Category).ToDictionary(g => g.Key, g => g.ToList());
+            // Sorted by price for value matching.
+            _traderPool = traderPool.OrderBy(e => e.PriceRoubles).ToList();
+            _anythingPool = anything.OrderBy(e => e.PriceRoubles).ToList();
+            _byCategory = _traderPool.GroupBy(e => e.Category).ToDictionary(g => g.Key, g => g.ToList());
             logger.Info($"[Archipelago] shop randomizer: {traderPool.Count} trader offers, {anything.Count} items in all.");
         }
     }

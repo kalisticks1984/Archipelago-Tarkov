@@ -167,6 +167,8 @@ public sealed class QuestDef
     [JsonPropertyName("check")] public bool Check { get; set; }
     [JsonPropertyName("location_id")] public long? LocationId { get; set; }
     [JsonPropertyName("location_name")] public string? LocationName { get; set; }
+    /// <summary>For each objective, the maps it can be done on ("*" = could not be told).</summary>
+    [JsonPropertyName("objective_maps")] public List<List<string>> ObjectiveMaps { get; set; } = [];
 }
 
 public sealed class HideoutDef

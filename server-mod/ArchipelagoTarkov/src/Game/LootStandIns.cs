@@ -122,7 +122,7 @@ public class LootStandIns(ISptLogger<LootStandIns> logger, CustomItemService cus
     /// The original lists are never edited: other mods (Fika co-op) can share them between players.
     /// </summary>
     public static List<SpawnpointTemplate> SwapLoot(IEnumerable<SpawnpointTemplate> loot, Func<string, LootDef?> target,
-        ISet<string> placed, Random rng)
+        ISet<string> placed, Random rng, Action<LootDef, string>? onPlaced = null, Func<string, string>? nameOf = null)
     {
         var spawnpoints = loot.ToList();
         var order = Enumerable.Range(0, spawnpoints.Count).OrderBy(_ => rng.Next()).ToList();
@@ -151,6 +151,13 @@ public class LootStandIns(ISptLogger<LootStandIns> logger, CustomItemService cus
 
                 ReplaceWithStandIn(items, item, def);
                 changed = true;
+                if (onPlaced != null)
+                {
+                    var container = sp.IsContainer == true ? items.FirstOrDefault(i => i.Id.ToString() == root) : null;
+                    onPlaced(def, container is null
+                        ? "on the ground"
+                        : $"in a {nameOf?.Invoke(container.Template.ToString()) ?? "container"}");
+                }
             }
 
             if (changed)
@@ -163,7 +170,8 @@ public class LootStandIns(ISptLogger<LootStandIns> logger, CustomItemService cus
     }
 
     /// <summary>Swaps the first carried item of each targeted type in a bot's rig, pockets and backpack.</summary>
-    public static void SwapBotLoot(BotBase bot, Func<string, LootDef?> target, ISet<string> placed)
+    public static void SwapBotLoot(BotBase bot, Func<string, LootDef?> target, ISet<string> placed,
+        Action<LootDef, string>? onPlaced = null, string carrier = "a bot")
     {
         var inventory = bot.Inventory;
         if (inventory?.Items is not { Count: > 0 } items || inventory.Equipment is not { } equipment)
@@ -183,6 +191,7 @@ public class LootStandIns(ISptLogger<LootStandIns> logger, CustomItemService cus
             }
 
             ReplaceWithStandIn(items, item, def);
+            onPlaced?.Invoke(def, $"carried by {carrier}");
         }
     }
 

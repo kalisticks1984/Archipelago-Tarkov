@@ -74,6 +74,8 @@ public static class PatchInstaller
         [
             new LocationListPatch(),
             new TraderUnlockPatch(),
+            new TraderListPatch(),
+            new TraderGetPatch(),
             new RaidStartPatch(),
             new RaidEndPatch(),
             new ProfileListPatch(),
@@ -188,6 +190,73 @@ public class TraderUnlockPatch : AbstractPatch
     }
 }
 
+/// <summary>
+/// Trader settings for a linked profile: the client treats a trader as unlocked when its profile flag OR the trader's
+/// "unlocked by default" setting is true. Vanilla sets that for six of the seven main traders, and mods such as SVM can
+/// set it for Jaeger, so for a linked profile it is reported as false and the profile flag (which the mod keeps in
+/// line with the received items) decides. The shared trader data is never changed.
+/// </summary>
+public class TraderListPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderHelper), nameof(TraderHelper.GetAllTraders));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, ref List<TraderBase> __result)
+    {
+        if (__result is null || !TraderLocks.Applies(__0.ToString()))
+        {
+            return;
+        }
+
+        __result = __result.Select(TraderLocks.Locked).ToList();
+    }
+}
+
+/// <summary>Same as <see cref="TraderListPatch"/> for a single trader.</summary>
+public class TraderGetPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderHelper), nameof(TraderHelper.GetTrader));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId? __1, ref TraderBase __result)
+    {
+        if (__result is null || __1 is not { } session || !TraderLocks.Applies(session.ToString()))
+        {
+            return;
+        }
+
+        __result = TraderLocks.Locked(__result);
+    }
+}
+
+internal static class TraderLocks
+{
+    public static bool Applies(string sessionId)
+    {
+        var manager = SessionManager.Instance;
+        var session = manager?.Get(sessionId);
+        if (session is null)
+        {
+            return false;
+        }
+
+        lock (session)
+        {
+            return session.Active;
+        }
+    }
+
+    public static TraderBase Locked(TraderBase trader)
+    {
+        var data = SessionManager.Instance?.Data;
+        return trader.UnlockedByDefault == true && data != null && data.TradersById.ContainsKey(trader.Id.ToString())
+            ? trader with { UnlockedByDefault = false }
+            : trader;
+    }
+}
+
 /// <summary>client/match/local/start: remember the raid and switch off transits to locked maps.</summary>
 public class RaidStartPatch : AbstractPatch
 {
@@ -227,7 +296,8 @@ public class RaidStartPatch : AbstractPatch
                 session.OnRaidStart(mapKey);
                 if (result?.LocationLoot?.Loot is { } loot && session.LootsanityOn(mapKey))
                 {
-                    swappedLoot = LootStandIns.SwapLoot(loot, session.LootTarget, session.LootPlacedThisRaid, session.LootRandom);
+                    swappedLoot = LootStandIns.SwapLoot(loot, session.LootTarget, session.LootPlacedThisRaid, session.LootRandom,
+                        session.RecordLootPlacement, manager.ItemName);
                 }
             }
 
@@ -272,6 +342,27 @@ public class BotGeneratePatch : AbstractPatch
         __result = After(__result, __0);
     }
 
+    /// <summary>"a Scav", "a PMC", a boss's name, ...: who carries an Archipelago Item, for the tracker.</summary>
+    private static string Carrier(BotBase bot)
+    {
+        var role = bot.Info?.Settings?.Role ?? "";
+        if (SessionManager.Instance?.Data.BossesByRole.TryGetValue(role, out var boss) == true)
+        {
+            return boss.Name.Replace("Boss - ", "");
+        }
+
+        return role.ToLowerInvariant() switch
+        {
+            "assault" or "marksman" or "cursedassault" => "a Scav",
+            var r when r.StartsWith("pmc") || r is "bear" or "usec" => "a PMC",
+            "pmcbot" => "a Raider",
+            "exusec" => "a Rogue",
+            var r when r.StartsWith("follower") => "a boss guard",
+            var r when r.StartsWith("sectant") => "a Cultist",
+            _ => "a bot",
+        };
+    }
+
     private static async Task<IEnumerable<BotBase>> After(Task<IEnumerable<BotBase>> original, MongoId sessionId)
     {
         var bots = await original.ConfigureAwait(false);
@@ -290,7 +381,8 @@ public class BotGeneratePatch : AbstractPatch
                 {
                     foreach (var bot in list)
                     {
-                        LootStandIns.SwapBotLoot(bot, session.LootTarget, session.LootPlacedThisRaid);
+                        LootStandIns.SwapBotLoot(bot, session.LootTarget, session.LootPlacedThisRaid,
+                            session.RecordLootPlacement, Carrier(bot));
                     }
                 }
             }
@@ -325,7 +417,7 @@ public class TraderAssortPatch : AbstractPatch
 
             string mode;
             bool everyRestock;
-            int seed;
+            int seed, stock;
             lock (session)
             {
                 if (!session.IsGatedTrader(__1.ToString()) || (mode = session.ShopMode) == "vanilla")
@@ -335,9 +427,10 @@ public class TraderAssortPatch : AbstractPatch
 
                 everyRestock = session.ShopEveryRestock;
                 seed = session.ShopSeed;
+                stock = session.ShopStock;
             }
 
-            __result = manager.Shops.Randomize(__result, __1.ToString(), mode, everyRestock, seed, manager.Data);
+            __result = manager.Shops.Randomize(__result, __1.ToString(), mode, everyRestock, seed, stock, manager.Data);
         }
         catch (Exception ex)
         {

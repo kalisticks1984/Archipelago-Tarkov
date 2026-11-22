@@ -127,6 +127,7 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 | `craftsanity` | `false` | The first craft of each hideout recipe (about 180) is a check. That first craft gives no item; later crafts are normal |
 | `shop_randomizer` | `vanilla` | Randomize the seven main traders' stock: `vanilla`, `same_category` (ammo stays ammo, meds stay meds) or `anything`. Not checks. See [Randomized shops](#randomized-shops) |
 | `shop_reshuffle` | `per_seed` | When randomized shops change: `per_seed` (fixed for the whole game) or `every_restock` |
+| `shop_stock` | `40` | With randomized shops: the percentage of each trader's offers in stock (10-100) |
 | `lock_flea_market` | `true` | The Flea Market is closed until you find *Flea Market Access* |
 | `level_pacing` | `normal` | How many maps the logic expects you to own before it asks for higher-level quests: `relaxed`, `normal` or `fast` |
 | `trap_percentage` | `10` | Percentage of filler items replaced by traps |
@@ -237,6 +238,15 @@ one spawn per type per raid is swapped; the rest of that type is normal loot.
 - With the optional client plugin, Archipelago Items show the Archipelago symbol. Without it they look like a pack of
   bolts with a violet background.
 
+### The tracker
+
+With the client plugin, press **F8** (or open the **Tasks** screen) for the Archipelago tracker. For each map you have
+unlocked it lists what is left there: quests you have taken with objectives on that map, extractions, bosses that
+spawn there, and how many loot checks can spawn there. During a raid the current map comes first and lists where this
+raid's Archipelago Items are (in which container, on the ground, or carried by which bot). Below that: the next kill
+milestones and checks that work on any map. The key and the Tasks-screen behaviour can be changed in the BepInEx
+config (F12 with the configuration manager).
+
 ### Craftsanity
 
 With `craftsanity: true`, the first time you collect each hideout recipe sends a check. That first craft gives no item
@@ -250,6 +260,8 @@ buy is a check.
 
 - `same_category`: each offer becomes another item from the same category (ammo stays ammo, meds stay meds).
   `anything`: any item a trader sells, or a loose item such as a key, a barter item or meds.
+- Each offer becomes an item worth about the same as the one it replaces (half to double), so loyalty level 1 stays
+  modest and good gear stays at higher levels. Only `shop_stock` percent of the offers are in stock.
 - Each offer keeps its loyalty level and any quest that unlocks it. Prices follow the item's value, in the trader's
   currency.
 - Purchase limits are random: cheap items allow 20-100 per restock, the most valuable 1-2. Higher loyalty levels raise

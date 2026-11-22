@@ -409,6 +409,7 @@ class TarkovWorld(World):
             "craftsanity": bool(self.options.craftsanity.value),
             "shop_randomizer": self.options.shop_randomizer.current_key,
             "shop_reshuffle": self.options.shop_reshuffle.current_key,
+            "shop_stock": self.options.shop_stock.value,
             "shop_seed": self.shop_seed,
             "lock_flea_market": bool(self.options.lock_flea_market.value),
             "death_link": bool(self.options.death_link.value),

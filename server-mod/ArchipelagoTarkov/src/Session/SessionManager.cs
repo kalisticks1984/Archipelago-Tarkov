@@ -7,6 +7,7 @@ using ArchipelagoTarkov.State;
 using SPTarkov.DI;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
+using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Spt.Config;
 using SPTarkov.Server.Core.Servers;
 
@@ -18,6 +19,7 @@ public class SessionManager(
     ISptLogger<SessionManager> logger,
     GameBridge game,
     ShopRandomizer shops,
+    ItemHelper itemHelper,
     CoreConfig coreConfig,
     IReadOnlyList<DependencyInjectionContainer> registrations
 ) : IOnLoad, IOnUpdate
@@ -33,6 +35,19 @@ public class SessionManager(
 
     public TarkovData Data => _data ?? throw new InvalidOperationException("Archipelago data not loaded");
     public ShopRandomizer Shops => shops;
+
+    /// <summary>An item template's display name (English locale).</summary>
+    public string ItemName(string tpl)
+    {
+        try
+        {
+            return itemHelper.GetItemName(new MongoId(tpl));
+        }
+        catch
+        {
+            return "container";
+        }
+    }
 
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {

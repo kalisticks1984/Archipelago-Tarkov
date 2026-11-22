@@ -74,6 +74,7 @@ class TestShopRandomizer(TarkovTestBase):
         data = self.world.fill_slot_data()
         self.assertEqual(data["shop_randomizer"], "same_category")
         self.assertEqual(data["shop_reshuffle"], "every_restock")
+        self.assertEqual(data["shop_stock"], 40)
         self.assertIsInstance(data["shop_seed"], int)
 
     def test_late_gunsmith_needs_the_flea_market(self) -> None:
