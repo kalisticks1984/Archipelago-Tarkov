@@ -65,6 +65,7 @@ public class SessionManager(
                 foreach (var state in _store.LoadAll())
                 {
                     _sessions[state.ProfileId] = CreateSession(state);
+                    Contracts.Instance?.Build(state);
                 }
             }
 
@@ -182,6 +183,7 @@ public class SessionManager(
     {
         lock (_lock)
         {
+            Contracts.Instance?.Remove(profileId);
             if (_sessions.Remove(profileId, out var session))
             {
                 lock (session)

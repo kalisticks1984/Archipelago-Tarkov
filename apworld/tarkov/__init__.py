@@ -8,13 +8,14 @@ from BaseClasses import CollectionState, Item, ItemClassification, Location, Loc
 from Options import OptionError
 from worlds.AutoWorld import WebWorld, World
 
+from .contracts import Contract, write_contracts
 from .data import load_data
 from .items import (FILLER_WEIGHTS, FLEA_ITEM, GAME_NAME, MAP_ITEMS, TRADER_ITEMS, TRAP_ITEMS, TarkovItem,
                     item_name_groups, item_name_to_id, item_table)
 from .logic import (ALL_MAPS, FLEA_MIN_LEVEL, LAB_KEYCARD_SOURCES, WEAPON_PARTS_TRADERS, Requirement, RequirementBuilder,
                     maps_needed_for_level)
-from .options import (LOOT_CATEGORY_KEYS, SHORT_KILL_LIMITS, Goal, KillMilestones, ShopRandomizer, StartingMap,
-                      StartingTraders, TarkovOptions)
+from .options import (LOOT_CATEGORY_KEYS, SHORT_KILL_LIMITS, Goal, KillMilestones, QuestMode, ShopRandomizer,
+                      StartingMap, StartingTraders, TarkovOptions)
 
 logger = logging.getLogger("Escape from Tarkov")
 
@@ -52,6 +53,8 @@ def _build_location_table() -> Dict[str, int]:
     for r in data["loot"]:
         table[r["name"]] = r["location_id"]
     for c in data["crafts"]:
+        table[c["name"]] = c["location_id"]
+    for c in data["contracts"]:
         table[c["name"]] = c["location_id"]
     return table
 
@@ -112,6 +115,7 @@ class TarkovWorld(World):
         "Bosses": {b["name"] for b in load_data()["bosses"]},
         "Loot": {r["name"] for r in load_data()["loot"]},
         "Crafts": {c["name"] for c in load_data()["crafts"]},
+        "Contracts": {c["name"] for c in load_data()["contracts"]},
         **{f"Loot - {key.replace('_', ' ').title()}": {r["name"] for r in load_data()["loot"] if r["category"] == key}
            for key in LOOT_CATEGORY_KEYS},
     }
@@ -128,6 +132,7 @@ class TarkovWorld(World):
         self.boss_checks: List[dict] = []
         self.loot_checks: List[dict] = []
         self.craft_checks: List[dict] = []
+        self.contracts: List[Contract] = []
         self.shop_seed = 0
         self.goal_quest_count = 0
 
@@ -146,6 +151,8 @@ class TarkovWorld(World):
         allowed_traders = {name.lower() for name in self.options.quest_traders.value}
         max_level = self.options.max_quest_level.value
         for q in data["quests"]:
+            if self.contracts_mode:
+                break  # Tarkov's own quests are switched off
             if not q["check"] or q["trader"] not in allowed_traders:
                 continue
             if self.requirements.quest(q["id"]).level > max_level:
@@ -168,10 +175,13 @@ class TarkovWorld(World):
         categories = set(self.options.lootsanity.value)
         self.loot_checks = [r for r in data["loot"] if r["category"] in categories]
         if self.options.craftsanity:
-            self.craft_checks = list(data["crafts"])
+            # Recipes unlocked by a vanilla quest can't be crafted when those quests are switched off.
+            self.craft_checks = [c for c in data["crafts"] if not (self.contracts_mode and c["quest"])]
         self.shop_seed = self.random.getrandbits(31)
+        if self.contracts_mode:
+            self.contracts = write_contracts(self.random, self.options.contract_count.value, self.start_map)
 
-        if self.options.goal == Goal.option_quest_count:
+        if self.options.goal == Goal.option_quest_count and not self.contracts_mode:
             if not self.quest_checks:
                 raise OptionError(f"Escape from Tarkov ({self.player_name}): the Quest Count goal needs at least one "
                                   f"quest check, but Quest Traders / Max Quest Level leave none.")
@@ -191,6 +201,14 @@ class TarkovWorld(World):
                 self.hideout_checks = list(data["hideout"])
                 logger.warning(f"Escape from Tarkov ({self.player_name}): too few checks are reachable at the start; "
                                f"enabling hideout checks.")
+
+    @property
+    def contracts_mode(self) -> bool:
+        return self.options.quest_mode == QuestMode.option_archipelago_contracts
+
+    @property
+    def goal_key(self) -> str:
+        return "kappa_contract" if self.contracts_mode else self.options.goal.current_key
 
     @property
     def shops_randomized(self) -> bool:
@@ -223,6 +241,7 @@ class TarkovWorld(World):
         count += sum(1 for b in self.boss_checks if ok(boss_requirement(b)))
         count += sum(1 for r in self.loot_checks if ok(loot_requirement(r)))
         count += sum(1 for c in self.craft_checks if ok(self.craft_requirement(c)))
+        count += sum(1 for c in self.contracts if ok(c.requirement))
         return count
 
     def create_regions(self) -> None:
@@ -243,6 +262,8 @@ class TarkovWorld(World):
             tarkov.locations.append(TarkovLocation(self.player, b["name"], b["location_id"], tarkov))
         for c in self.craft_checks:
             tarkov.locations.append(TarkovLocation(self.player, c["name"], c["location_id"], tarkov))
+        for c in self.contracts:
+            tarkov.locations.append(TarkovLocation(self.player, c.location_name, c.location_id, tarkov))
         loot_excluded = not self.options.lootsanity_progression
         for r in self.loot_checks:
             location = TarkovLocation(self.player, r["name"], r["location_id"], tarkov)
@@ -251,7 +272,7 @@ class TarkovWorld(World):
             tarkov.locations.append(location)
 
         # Goal events
-        if self.options.goal == Goal.option_quest_count:
+        if self.goal_key == "quest_count":
             for q in self.quest_checks:
                 event = TarkovLocation(self.player, f"{q['location_name']} (Completed)", None, tarkov)
                 event.place_locked_item(self._event("Quest Completed"))
@@ -289,7 +310,7 @@ class TarkovWorld(World):
 
         total_locations = (len(self.quest_checks) + len(self.hideout_checks) + len(self.extract_checks)
                            + len(self.kill_checks) + len(self.boss_checks) + len(self.loot_checks)
-                           + len(self.craft_checks))
+                           + len(self.craft_checks) + len(self.contracts))
         # Loot checks that may only hold filler can't take the progression items.
         loot_excluded = len(self.loot_checks) if not self.options.lootsanity_progression else 0
         if len(pool) > total_locations - loot_excluded:
@@ -357,7 +378,7 @@ class TarkovWorld(World):
         for q in self.quest_checks:
             rule = self._rule(self.requirements.quest(q["id"]))
             self.get_location(q["location_name"]).access_rule = rule
-            if self.options.goal == Goal.option_quest_count:
+            if self.goal_key == "quest_count":
                 self.get_location(f"{q['location_name']} (Completed)").access_rule = rule
         for h in self.hideout_checks:
             self.get_location(h["name"]).access_rule = self._rule(self.requirements.hideout_level(h["area"], h["level"]))
@@ -377,9 +398,14 @@ class TarkovWorld(World):
         for b in self.boss_checks:
             self.get_location(b["name"]).access_rule = self._rule(boss_requirement(b))
 
+        for c in self.contracts:
+            self.get_location(c.location_name).access_rule = self._rule(c.requirement)
+
         victory = self.get_location("Escape from Tarkov")
         goal = self.options.goal.value
-        if goal == Goal.option_quest_count:
+        if self.contracts_mode:
+            victory.access_rule = self._rule(self.contracts[-1].requirement)
+        elif goal == Goal.option_quest_count:
             needed = self.goal_quest_count
             victory.access_rule = lambda state: state.has("Quest Completed", player, needed)
         elif goal == Goal.option_collector:
@@ -399,7 +425,9 @@ class TarkovWorld(World):
             "data_version": DATA_VERSION,
             "data_hash": load_data()["meta"]["data_hash"],
             "spt_version": load_data()["meta"]["spt_version"],
-            "goal": self.options.goal.current_key,
+            "goal": self.goal_key,
+            "quest_mode": self.options.quest_mode.current_key,
+            "contracts": [c.slot_data() for c in self.contracts],
             "goal_quest_count": self.goal_quest_count,
             "collector_quest_id": load_data()["collector_quest_id"],
             "extracts_per_map": self.options.extracts_per_map.value,

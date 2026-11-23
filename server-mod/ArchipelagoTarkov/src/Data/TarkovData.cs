@@ -22,6 +22,15 @@ public sealed class TarkovData
     [JsonPropertyName("loot")] public List<LootDef> Loot { get; set; } = [];
     [JsonPropertyName("crafts")] public List<CraftDef> Crafts { get; set; } = [];
     [JsonPropertyName("items")] public List<ItemDef> Items { get; set; } = [];
+    [JsonPropertyName("contracts")] public List<ContractDef> Contracts { get; set; } = [];
+
+    /// <summary>Archipelago contracts: contract index (0 = Kappa) -> its check.</summary>
+    [JsonIgnore] public Dictionary<int, long> ContractLocations { get; private set; } = new();
+    /// <summary>
+    /// How far into the road to Kappa each vanilla quest is: the quests it needs (itself included) over the quests
+    /// Collector needs, 0..1. Archipelago contracts unlock a quest's trader offers at that share of the line.
+    /// </summary>
+    [JsonIgnore] public Dictionary<string, double> QuestProgress { get; private set; } = new();
 
     /// <summary>Craftsanity: hideout recipe id -> its check.</summary>
     [JsonIgnore] public Dictionary<string, CraftDef> CraftsByRecipe { get; private set; } = new();
@@ -129,9 +138,55 @@ public sealed class TarkovData
             TradersById[t.Id] = t;
         }
 
+        foreach (var c in Contracts)
+        {
+            ContractLocations[c.Index] = c.LocationId;
+            LocationNames[c.LocationId] = c.Name;
+        }
+
+        IndexQuestProgress();
         JaegerUnlockQuestId = Quests.FirstOrDefault(q => q.Name == "Introduction" && q.Trader == "mechanic")?.Id;
         ColleaguesPart3Id = Quests.FirstOrDefault(q => q.Name == "Colleagues - Part 3")?.Id;
         SadistId = Quests.FirstOrDefault(q => q.Name == "The Huntsman Path - Sadist")?.Id;
+    }
+
+    private void IndexQuestProgress()
+    {
+        var byId = Quests.ToDictionary(q => q.Id);
+        var cache = new Dictionary<string, HashSet<string>>();
+
+        HashSet<string> Closure(string id)
+        {
+            if (cache.TryGetValue(id, out var done))
+            {
+                return done;
+            }
+
+            var seen = new HashSet<string>();
+            var stack = new Stack<string>([id]);
+            while (stack.Count > 0)
+            {
+                var next = stack.Pop();
+                if (!seen.Add(next) || !byId.TryGetValue(next, out var q))
+                {
+                    continue;
+                }
+
+                foreach (var p in q.Prereqs.Concat(q.FinishPrereqs))
+                {
+                    stack.Push(p.Id);
+                }
+            }
+
+            cache[id] = seen;
+            return seen;
+        }
+
+        var kappa = Math.Max(1, string.IsNullOrEmpty(CollectorQuestId) ? 254 : Closure(CollectorQuestId).Count);
+        foreach (var q in Quests)
+        {
+            QuestProgress[q.Id] = Math.Min(1.0, Closure(q.Id).Count / (double)kappa);
+        }
     }
 }
 
@@ -159,8 +214,22 @@ public sealed class TraderDef
     [JsonPropertyName("id")] public string Id { get; set; } = "";
 }
 
+public sealed class ContractDef
+{
+    [JsonPropertyName("index")] public int Index { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class QuestPrereq
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+}
+
 public sealed class QuestDef
 {
+    [JsonPropertyName("prereqs")] public List<QuestPrereq> Prereqs { get; set; } = [];
+    [JsonPropertyName("finish_prereqs")] public List<QuestPrereq> FinishPrereqs { get; set; } = [];
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("trader")] public string? Trader { get; set; }

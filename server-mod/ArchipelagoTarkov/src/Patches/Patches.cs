@@ -12,6 +12,8 @@ using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Eft.Hideout;
 using SPTarkov.Server.Core.Models.Eft.ItemEvent;
 using SPTarkov.Server.Core.Models.Eft.Match;
+using SPTarkov.Server.Core.Helpers.Quest;
+using SPTarkov.Server.Core.Models.Enums;
 using SPTarkov.Server.Core.Routers;
 using LocationPath = SPTarkov.Server.Core.Models.Eft.Common.Tables.Path;
 
@@ -35,7 +37,8 @@ public static class PatchInstaller
     [
         typeof(LocationController), typeof(TraderHelper), typeof(LocationLifecycleService),
         typeof(ProfileCallbacks), typeof(EventOutputHolder), typeof(ProfileController), typeof(GameCallbacks),
-        typeof(BotController), typeof(TraderAssortHelper), typeof(HideoutController),
+        typeof(BotController), typeof(TraderAssortHelper), typeof(HideoutController), typeof(QuestHelper),
+        typeof(AssortHelper),
     ];
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Ready = new();
@@ -85,6 +88,8 @@ public static class PatchInstaller
             new BotGeneratePatch(),
             new TraderAssortPatch(),
             new TakeProductionPatch(),
+            new ClientQuestsPatch(),
+            new QuestAssortPatch(),
         ];
 
         foreach (var patch in patches)
@@ -204,7 +209,19 @@ public class TraderListPatch : AbstractPatch
     [PatchPostfix]
     public static void Postfix(MongoId __0, ref List<TraderBase> __result)
     {
-        if (__result is null || !TraderLocks.Applies(__0.ToString()))
+        if (__result is null)
+        {
+            return;
+        }
+
+        // The Archipelago trader only exists for profiles playing contracts.
+        if (Contracts.Instance?.For(__0.ToString()) is null)
+        {
+            var archipelago = new MongoId(Contracts.TraderId);
+            __result = __result.Where(t => t.Id != archipelago).ToList();
+        }
+
+        if (!TraderLocks.Applies(__0.ToString()))
         {
             return;
         }
@@ -788,6 +805,73 @@ internal static class SessionLock
         finally
         {
             Monitor.Exit(session);
+        }
+    }
+}
+
+/// <summary>
+/// Archipelago contracts: a profile playing contracts sees only its own contracts, never Tarkov's quests; every
+/// other profile never sees anybody's contracts.
+/// </summary>
+public class ClientQuestsPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(QuestHelper), nameof(QuestHelper.GetClientQuests));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, ref List<Quest> __result)
+    {
+        var contracts = Contracts.Instance;
+        if (contracts is null || __result is null)
+        {
+            return;
+        }
+
+        var mine = contracts.For(__0.ToString());
+        __result = mine != null
+            ? __result.Where(q => mine.Indexes.ContainsKey(q.Id)).ToList()
+            : __result.Where(q => !contracts.IsContract(q.Id)).ToList();
+    }
+}
+
+/// <summary>
+/// Archipelago contracts: Tarkov's quests never get done, so offers they unlock would stay locked forever. Instead an
+/// offer unlocks once the share of contracts done reaches how far into the road to Kappa its quest is (loyalty levels
+/// still apply as usual).
+/// </summary>
+public class QuestAssortPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(AssortHelper), nameof(AssortHelper.StripLockedQuestAssort));
+
+    [PatchPrefix]
+    public static void Prefix(PmcData __0, ref Dictionary<string, Dictionary<MongoId, MongoId>> __3)
+    {
+        try
+        {
+            var contracts = Contracts.Instance;
+            var data = SessionManager.Instance?.Data;
+            if (contracts is null || data is null || __0?.Id is not { } pmcId || __3 is null
+                || contracts.For(pmcId.ToString()) is not { Count: > 0 } set)
+            {
+                return;
+            }
+
+            var done = __0.Quests?.Count(q => q.Status == QuestStatusEnum.Success && set.Indexes.TryGetValue(q.QId, out var i) && i != 0) ?? 0;
+            var share = done / (double)set.Count;
+            var filtered = new Dictionary<string, Dictionary<MongoId, MongoId>>();
+            foreach (var (status, offers) in __3)
+            {
+                filtered[status] = offers
+                    .Where(kv => !(data.QuestProgress.TryGetValue(kv.Value.ToString(), out var needed) && share >= needed))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
+            }
+
+            __3 = filtered;
+        }
+        catch
+        {
+            // Keep the vanilla filter.
         }
     }
 }

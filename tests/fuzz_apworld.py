@@ -23,6 +23,8 @@ loot_categories = ["barter", "keys", "medication", "provisions", "ammo", "weapon
 def random_tarkov(rng):
     return {
         "goal": rng.choice(["quest_count", "collector", "all_extracts", "bosses"]),
+        "quest_mode": rng.choice(["archipelago_contracts", "vanilla"]),
+        "contract_count": rng.choice([40, 80, 125, 200]),
         "goal_quest_count": rng.choice([5, 20, 60, 150, 372]),
         "starting_map": rng.choice(["ground_zero", "factory", "customs", "woods", "interchange", "shoreline",
                                     "reserve", "lighthouse", "streets_of_tarkov"]),

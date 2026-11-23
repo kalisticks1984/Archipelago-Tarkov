@@ -103,6 +103,42 @@ public sealed class ApSession
     /// The checks still to do, by map (only unlocked maps; the current raid's map first), for the client plugin's
     /// tracker window. During a raid it lists where this raid's Archipelago Items are.
     /// </summary>
+    /// <summary>Contracts taken and not turned in yet, with the maps their objectives are on (none: any map).</summary>
+    private IEnumerable<(string Name, List<string> Maps)> ContractsInProgress(Func<long, bool> pending)
+    {
+        var set = Contracts.Instance?.For(ProfileId);
+        if (set is null || !State.HasSlotData || !State.SlotData!.Value.TryGetProperty("contracts", out var list))
+        {
+            yield break;
+        }
+
+        foreach (var contract in list.EnumerateArray())
+        {
+            var index = contract.GetProperty("index").GetInt32();
+            if (!set.QuestIds.TryGetValue(index, out var questId) || !_data.ContractLocations.TryGetValue(index, out var location)
+                || !pending(location)
+                || _game.QuestState(ProfileId, questId.ToString()) is not (QuestStatusEnum.Started or QuestStatusEnum.AvailableForFinish))
+            {
+                continue;
+            }
+
+            var maps = new List<string>();
+            foreach (var o in contract.GetProperty("objectives").EnumerateArray())
+            {
+                if (o.TryGetProperty("map", out var m) && m.ValueKind == JsonValueKind.String)
+                {
+                    maps.Add(m.GetString()!);
+                }
+                else if (o.TryGetProperty("maps", out var bm) && bm.ValueKind == JsonValueKind.Array)
+                {
+                    maps.AddRange(bm.EnumerateArray().Select(x => x.GetString()!));
+                }
+            }
+
+            yield return (index == 0 ? "Contract - Kappa" : contract.GetProperty("title").GetString() ?? $"Contract {index}", maps);
+        }
+    }
+
     public TrackerResponse BuildTracker()
     {
         var response = new TrackerResponse { Linked = Active, RaidMap = InRaid ? RaidMap : null };
@@ -114,8 +150,33 @@ public sealed class ApSession
         var detected = _game.DetectChecks(ProfileId, _data, State).ToHashSet();
         bool Pending(long id) => State.SlotLocations.Contains(id) && !State.Checked.Contains(id) && !detected.Contains(id);
 
-        var questsByMap = new Dictionary<string, List<QuestDef>>();
+        var questsByMap = new Dictionary<string, List<string>>();
         var questsAnywhere = new List<string>();
+        void AddQuest(string name, IEnumerable<string> questMaps)
+        {
+            var list = questMaps.Distinct().ToList();
+            if (list.Count == 0 || list.Contains("*"))
+            {
+                questsAnywhere.Add(name);
+                return;
+            }
+
+            foreach (var map in list)
+            {
+                if (!questsByMap.TryGetValue(map, out var names))
+                {
+                    questsByMap[map] = names = new List<string>();
+                }
+
+                names.Add(name);
+            }
+        }
+
+        foreach (var (name, contractMaps) in ContractsInProgress(Pending))
+        {
+            AddQuest(name, contractMaps);
+        }
+
         foreach (var q in _data.Quests)
         {
             if (q.LocationId is not { } id || !Pending(id))
@@ -129,22 +190,7 @@ public sealed class ApSession
                 continue; // only quests you have taken: the rest can't be done in this raid anyway
             }
 
-            var questMaps = q.ObjectiveMaps.SelectMany(m => m).Distinct().ToList();
-            if (questMaps.Count == 0 || questMaps.Contains("*"))
-            {
-                questsAnywhere.Add(q.LocationName ?? q.Name);
-                continue;
-            }
-
-            foreach (var map in questMaps)
-            {
-                if (!questsByMap.TryGetValue(map, out var list))
-                {
-                    questsByMap[map] = list = new List<QuestDef>();
-                }
-
-                list.Add(q);
-            }
+            AddQuest(q.LocationName ?? q.Name, q.ObjectiveMaps.SelectMany(m => m));
         }
 
         var maps = _data.Maps.Where(m => IsMapUnlocked(m.Key))
@@ -153,7 +199,7 @@ public sealed class ApSession
         {
             var current = InRaid && map.Key == RaidMap;
             var groups = new List<TrackerGroup>();
-            var quests = questsByMap.GetValueOrDefault(map.Key)?.Select(q => q.LocationName ?? q.Name).ToList() ?? [];
+            var quests = questsByMap.GetValueOrDefault(map.Key) ?? [];
             groups.Add(new TrackerGroup("Quests in progress", quests));
             groups.Add(new TrackerGroup("Extractions", _data.Extracts
                 .Where(e => e.Map == map.Key && Pending(e.LocationId)).Select(e => e.Name).ToList()));
@@ -290,6 +336,7 @@ public sealed class ApSession
         _openTask = null;
         _game.RemoveLocks(ProfileId, _data);
         State.ResetGame(); // also stops auto-connecting, so the same game is not re-linked by accident
+        Contracts.Instance?.Remove(ProfileId);
         RecomputeUnlocks();
         _inflightChecks.Clear();
         _reachedConnected = false;
@@ -363,6 +410,8 @@ public sealed class ApSession
         return State.SlotString("goal") switch
         {
             "collector" => _game.QuestCompleted(ProfileId, _data.CollectorQuestId) ? "Collector done" : "complete Fence's Collector quest",
+            "kappa_contract" => KappaContractDone() ? "Kappa contract done"
+                : $"finish the Kappa contract ({ContractProgress().Done}/{ContractProgress().Total} contracts done)",
             "all_extracts" => $"extract from every map ({_data.Maps.Count(m => State.ExtractCounts.GetValueOrDefault(m.Key) > 0)}/{_data.Maps.Count})",
             "bosses" => $"kill every boss ({_data.Bosses.Count(b => State.BossesKilled.Contains(b.Key))}/{_data.Bosses.Count})",
             _ => $"complete {State.SlotInt("goal_quest_count")} quests ({CompletedQuestChecks()} done)",
@@ -933,6 +982,7 @@ public sealed class ApSession
 
             var hadDeathLinkTag = DeathLinkEnabled;
             State.SlotData = JsonSerializer.Deserialize<JsonElement>(slotData.ToJsonString());
+            Contracts.Instance?.Build(State);
             if (DeathLinkEnabled && !hadDeathLinkTag)
             {
                 // First connection: slot data was not known when Connect was sent.
@@ -958,6 +1008,13 @@ public sealed class ApSession
             PlanStartingKit();
             Say("Your profile is now linked to this Archipelago game. Maps and traders you don't have yet are locked " +
                 "from now on. Restart the game once so the map list and trader screens update.");
+            if (ContractsMode)
+            {
+                Say($"Your quests are Archipelago contracts this game: {Contracts.Instance?.For(ProfileId)?.Count ?? 0} of them, " +
+                    "offered by the Archipelago trader, then the Kappa contract (your goal). Tarkov's own quests are hidden. " +
+                    "Contract objectives read properly after that restart.");
+            }
+
             if (State.SlotString("goal") == "collector")
             {
                 Say("Kappa tip: accept Therapist's 'Colleagues - Part 3' while Jaeger's 'The Huntsman Path - Sadist' is " +
@@ -1451,8 +1508,27 @@ public sealed class ApSession
         return done.Count(id => _data.QuestLocationIds.Contains(id) && State.SlotLocations.Contains(id));
     }
 
+    public bool ContractsMode => State.SlotString("quest_mode") == "archipelago_contracts";
+
+    /// <summary>Contracts done (the Kappa one not counted), and how many there are.</summary>
+    public (int Done, int Total) ContractProgress()
+    {
+        var set = Contracts.Instance?.For(ProfileId);
+        if (set is null)
+        {
+            return (0, 0);
+        }
+
+        var done = set.QuestIds.Count(kv => kv.Key != 0 && _game.QuestCompleted(ProfileId, kv.Value.ToString()));
+        return (done, set.Count);
+    }
+
+    private bool KappaContractDone() =>
+        Contracts.Instance?.For(ProfileId) is { } set && _game.QuestCompleted(ProfileId, set.KappaId.ToString());
+
     private bool GoalMet() => State.SlotString("goal") switch
     {
+        "kappa_contract" => KappaContractDone(),
         "collector" => _game.QuestCompleted(ProfileId, _data.CollectorQuestId),
         "all_extracts" => _data.Maps.All(m => State.ExtractCounts.GetValueOrDefault(m.Key) > 0),
         "bosses" => _data.Bosses.All(b => State.BossesKilled.Contains(b.Key)),

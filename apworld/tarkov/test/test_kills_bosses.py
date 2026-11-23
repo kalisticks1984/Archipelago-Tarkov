@@ -87,7 +87,7 @@ class TestKillsAndBossesOff(TarkovTestBase):
 
 
 class TestBossesGoal(TarkovTestBase):
-    options = {"goal": "bosses", "starting_map": "customs"}
+    options = {"quest_mode": "vanilla", "goal": "bosses", "starting_map": "customs"}
 
     def test_victory_needs_every_boss_map(self) -> None:
         self.assertBeatable(False)
@@ -102,5 +102,6 @@ class TestBossesGoal(TarkovTestBase):
 
 
 class TestBossesGoalWithoutBossChecks(TarkovTestBase):
+    options = {"quest_mode": "vanilla"}
     # The goal tracks boss kills on its own; it must not depend on the checks being in the seed.
     options = {"goal": "bosses", "boss_checks": False, "kill_milestones": "off"}

@@ -57,5 +57,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\..\apworld\tarkov\data\tarkov_data.json" LogicalName="ArchipelagoTarkov.tarkov_data.json" />
+    <!-- The Archipelago trader's avatar (same symbol the client plugin uses for Archipelago Items). -->
+    <EmbeddedResource Include="..\..\client-plugin\ArchipelagoTarkov.Client\Resources\archipelago.png" LogicalName="ArchipelagoTarkov.archipelago.png" />
   </ItemGroup>
 </Project>

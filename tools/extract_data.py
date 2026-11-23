@@ -96,6 +96,9 @@ STAND_IN_PREFIX = "a9a9a9"
 
 # Craftsanity: each hideout recipe is a check. Ids from CRAFT_OFFSET, kept on regeneration like lootsanity's.
 CRAFT_OFFSET = 200_000
+# Archipelago contracts (quest_mode: archipelago_contracts): the seed writes the contracts, the names are fixed.
+CONTRACT_OFFSET = 300_000
+CONTRACT_MAX = 200
 CRAFT_MAX = 10_000
 
 # Map key -> (display name, location ids used in quest data / raid server ids, text hints)
@@ -193,6 +196,7 @@ def extract_loot(db, items, locale, location_name_to_key, out_path):
         return cat_id
 
     category_of = {}
+    price_of = {entry["Id"]: int(entry.get("Price") or 0) for entry in handbook["Items"]}
     for entry in handbook["Items"]:
         key = LOOT_CATEGORIES.get(top_category(entry["ParentId"]))
         if key:
@@ -282,6 +286,7 @@ def extract_loot(db, items, locale, location_name_to_key, out_path):
             "category": category,
             "maps": maps,  # empty: found on bots everywhere
             "bot_safe": bot_safe,
+            "price": price_of.get(tpl, 0),
             "stand_in": STAND_IN_PREFIX + hashlib.sha1(f"archipelago-loot:{tpl}".encode()).hexdigest()[:18],
             "location_id": location_id,
         })
@@ -753,6 +758,10 @@ def main(spt_data_dir: str, out_path: str) -> None:
     used_craft_names = {r["name"] for r in previous_crafts.values()}
     next_craft_id = max((r["location_id"] for r in previous_crafts.values()),
                         default=LOCATION_BASE + CRAFT_OFFSET - 1) + 1
+    # Contract n is "Contract n"; the last contract of every seed (the Kappa one) has its own name.
+    contract_records = [{"index": 0, "name": "Contract - Kappa", "location_id": LOCATION_BASE + CONTRACT_OFFSET}]
+    contract_records += [{"index": n, "name": f"Contract {n}", "location_id": LOCATION_BASE + CONTRACT_OFFSET + n}
+                         for n in range(1, CONTRACT_MAX + 1)]
     craft_records = []
     craft_skipped = {}
     for recipe in sorted(load(os.path.join(db, "hideout", "production.json"))["recipes"], key=lambda r: r["_id"]):
@@ -864,6 +873,7 @@ def main(spt_data_dir: str, out_path: str) -> None:
     lines += [f"loc:{b['location_id']}:{b['name']}" for b in boss_records]
     lines += [f"loc:{r['location_id']}:{r['name']}:{r['tpl']}:{r['stand_in']}" for r in loot_records]
     lines += [f"loc:{r['location_id']}:{r['name']}:{r['recipe']}" for r in craft_records]
+    lines += [f"loc:{c['location_id']}:{c['name']}" for c in contract_records]
     data_hash = hashlib.sha1("\n".join(sorted(lines)).encode("utf-8")).hexdigest()
 
     data = OrderedDict()
@@ -890,6 +900,7 @@ def main(spt_data_dir: str, out_path: str) -> None:
     data["bosses"] = boss_records
     data["loot"] = loot_records
     data["crafts"] = craft_records
+    data["contracts"] = contract_records
     data["items"] = item_records
 
     with open(out_path, "w", encoding="utf-8") as f:

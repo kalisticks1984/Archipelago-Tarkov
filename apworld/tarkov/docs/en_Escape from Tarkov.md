@@ -18,12 +18,19 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
 - **Traders are locked.** Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger are items. You start
   with two of them (Prapor and Therapist by default). Fence, Lightkeeper, the BTR Driver and Ref work as normal.
 - **The Flea Market is banned** until you find `Flea Market Access` (can be turned off).
-- Everything else about Tarkov stays the same: loot, AI, hideout crafting and quest objectives.
+- **Quests are Archipelago contracts** (by default). Tarkov's own quests are switched off; the Archipelago trader
+  offers a line of contracts written for your seed, ending with the Kappa contract. With `quest_mode: vanilla` you play
+  Tarkov's own quests instead.
+- Everything else about Tarkov stays the same: loot, AI and hideout crafting.
 
 ## What is a check?
 
-- Completing a quest from one of the seven main traders. Quests that can't be completed reliably (seasonal events,
-  faction-only quests, branching quests where completing one fails another) are not checks.
+- Completing an Archipelago contract (125 by default, set with `contract_count`, plus the Kappa contract). Contracts
+  ask you to kill Scavs, PMCs or a boss, survive a map, or hand over found-in-raid items, and pay XP, roubles and
+  standing with a main trader. Several are open at once, in an order your items make possible.
+- With `quest_mode: vanilla`: completing a quest from one of the seven main traders. Quests that can't be completed
+  reliably (seasonal events, faction-only quests, branching quests where completing one fails another) are not
+  checks.
 - Building a hideout area level (optional).
 - Surviving and extracting from a map, a number of times per map (optional).
 - Reaching a total number of Scav or PMC kills (optional). Kills in PMC and Scav raids both count, on unlocked maps.
@@ -54,7 +61,10 @@ a rig, a backpack, meds, food and money), either on top of your normal starting 
 
 ## What is the goal?
 
-One of:
+With Archipelago contracts: finish the Kappa contract. It is offered once every other contract is done and rewards
+the Kappa container.
+
+With vanilla quests, one of:
 - complete a set number of quests that are checks,
 - complete Fence's *Collector* quest (Kappa),
 - extract at least once from every map,

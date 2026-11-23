@@ -2,11 +2,11 @@ from .bases import TarkovTestBase
 
 
 class TestCollectorGoal(TarkovTestBase):
-    options = {"goal": "collector", "hideout_checks": False, "extracts_per_map": 3}
+    options = {"quest_mode": "vanilla", "goal": "collector", "hideout_checks": False, "extracts_per_map": 3}
 
 
 class TestAllExtractsGoal(TarkovTestBase):
-    options = {"goal": "all_extracts", "starting_map": "customs", "starting_traders": "random_one"}
+    options = {"quest_mode": "vanilla", "goal": "all_extracts", "starting_map": "customs", "starting_traders": "random_one"}
 
     def test_victory_needs_every_map(self) -> None:
         self.assertFalse(self.multiworld.get_location("Escape from Tarkov", self.player).can_reach(self.multiworld.state))
@@ -14,6 +14,7 @@ class TestAllExtractsGoal(TarkovTestBase):
 
 class TestSmallGame(TarkovTestBase):
     options = {
+        "quest_mode": "vanilla",
         "goal_quest_count": 15,
         "max_quest_level": 15,
         "quest_traders": ["Prapor", "Therapist", "Skier"],

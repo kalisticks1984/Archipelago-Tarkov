@@ -4,7 +4,8 @@ from Options import Choice, DeathLink, DefaultOnToggle, OptionSet, PerGameCommon
 
 
 class Goal(Choice):
-    """What you need to do to finish your game.
+    """What you need to do to finish your game. With Quest Mode archipelago_contracts the goal is always the
+    Kappa contract and this option is ignored.
 
     quest_count: complete a number of quests that are checks (see Goal Quest Count).
     collector: complete Fence's "Collector" quest (the Kappa container).
@@ -17,6 +18,30 @@ class Goal(Choice):
     option_all_extracts = 2
     option_bosses = 3
     default = 0
+
+
+class QuestMode(Choice):
+    """Which quests you play.
+
+    archipelago_contracts: Tarkov's own quests are switched off. The Archipelago trader offers a line of contracts
+    written for your seed (kill, survive, boss and hand-in jobs), ordered so the items you can receive make each one
+    possible. Every contract is a check and gives XP, roubles and standing with a main trader. The last contract,
+    "Kappa", needs every other contract done and rewards the Kappa container: finishing it is your goal, whatever
+    Goal is set to.
+    vanilla: Tarkov's own quests are checks (see Quest Traders and Max Quest Level) and Goal applies."""
+    display_name = "Quest Mode"
+    option_archipelago_contracts = 0
+    option_vanilla = 1
+    default = 0
+
+
+class ContractCount(Range):
+    """How many contracts come before the Kappa contract (Archipelago contracts only).
+    The vanilla road to Kappa is 254 quests; the default is about half of that."""
+    display_name = "Contract Count"
+    range_start = 40
+    range_end = 200
+    default = 125
 
 
 class GoalQuestCount(Range):
@@ -246,6 +271,8 @@ class TarkovDeathLink(DeathLink):
 class TarkovOptions(PerGameCommonOptions):
     goal: Goal
     goal_quest_count: GoalQuestCount
+    quest_mode: QuestMode
+    contract_count: ContractCount
     starting_map: StartingMap
     starting_traders: StartingTraders
     quest_traders: QuestTraders

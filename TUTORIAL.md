@@ -112,12 +112,14 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 
 | Option | Default | What it does |
 |---|---|---|
-| `goal` | `quest_count` | What finishes your game: `quest_count` (complete a number of check quests), `collector` (Fence's *Collector*, the Kappa quest), `all_extracts` (extract once from every map), or `bosses` (kill every boss once) |
+| `quest_mode` | `archipelago_contracts` | `archipelago_contracts`: Tarkov's quests are replaced by a line of contracts from the Archipelago trader, ending with the Kappa contract (your goal). `vanilla`: Tarkov's own quests are checks. See [Archipelago contracts](#archipelago-contracts) |
+| `contract_count` | `125` | How many contracts come before the Kappa contract (40–200). The vanilla road to Kappa is 254 quests |
+| `goal` | `quest_count` | With `quest_mode: vanilla`, what finishes your game: `quest_count` (complete a number of check quests), `collector` (Fence's *Collector*, the Kappa quest), `all_extracts` (extract once from every map), or `bosses` (kill every boss once). Ignored with contracts: the goal is the Kappa contract |
 | `goal_quest_count` | `60` | How many check quests the `quest_count` goal needs (5–372) |
 | `starting_map` | `ground_zero` | The map you start with. Every other map is an item. The Lab can't be the starting map |
 | `starting_traders` | `prapor_and_therapist` | The traders you start with: Prapor + Therapist, two random ones, or one random one |
-| `quest_traders` | all seven | Traders whose quests are checks. Quests from the others still work, they just don't send anything |
-| `max_quest_level` | `79` | Quests that need a higher player level than this aren't checks. Lower = shorter game |
+| `quest_traders` | all seven | Vanilla quests only: traders whose quests are checks. Quests from the others still work, they just don't send anything |
+| `max_quest_level` | `79` | Vanilla quests only: quests that need a higher player level than this aren't checks. Lower = shorter game |
 | `hideout_checks` | `true` | Each hideout area level you build is a check |
 | `extracts_per_map` | `1` | How many successful PMC extractions on each map are checks (0–5) |
 | `kill_milestones` | `short` | Checks for total kills, in PMC and Scav raids on unlocked maps: `off`, `short` (5–50 Scavs, 1–25 PMCs) or `long` (5–300 Scavs, 1–100 PMCs) |
@@ -135,7 +137,8 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 | `starting_kit_quality` | `standard` | How good the kit is: `scrappy`, `standard` or `geared` |
 | `death_link` | `false` | When your PMC dies in raid, everyone with DeathLink dies, and the other way round |
 
-Short games: `goal_quest_count: 20`, `max_quest_level: 15` and `extracts_per_map: 1` make a game of a few evenings.
+Short games: `contract_count: 40` is a game of a few evenings. With vanilla quests, `goal_quest_count: 20`,
+`max_quest_level: 15` and `extracts_per_map: 1` do the same.
 
 ---
 
@@ -194,7 +197,9 @@ That's it. The connection is remembered for this profile: every time the SPT ser
 - **Flea Market:** banned until you receive *Flea Market Access* (and then it opens at the usual level).
 
 **Checks**
-- **Quests:** turning in a quest from one of the main traders sends its check. Event, faction-only, edition-only and
+- **Contracts** (the default): turning in an Archipelago contract sends its check. See
+  [Archipelago contracts](#archipelago-contracts).
+- **Quests** (`quest_mode: vanilla`): turning in a quest from one of the main traders sends its check. Event, faction-only, edition-only and
   branching quests (where finishing one fails another) aren't checks, so picking a branch never costs you a check.
 - **Hideout:** each area level you build (if `hideout_checks` is on).
 - **Extractions:** surviving a raid as a PMC on a map you own. Scav raids and maps you don't own don't count. A
@@ -217,9 +222,32 @@ With the client plugin, these messages also pop up during raids.
 **DeathLink** (if on) — dying in raid as a PMC sends a death to the multiworld. A death from someone else kills you
 only while you're in raid, and only with the client plugin; out of raid it's just announced.
 
-**The Collector goal** — accept Therapist's *Colleagues - Part 3* **before** turning in Jaeger's *The Huntsman Path -
+**The Collector goal** (vanilla quests) — accept Therapist's *Colleagues - Part 3* **before** turning in Jaeger's *The Huntsman Path -
 Sadist*. *Colleagues - Part 3* is only offered while *Sadist* is in progress, and *Collector* needs it. The contact
 reminds you when it matters.
+
+### Archipelago contracts
+
+With `quest_mode: archipelago_contracts` (the default), Tarkov's own quests are switched off and the **Archipelago**
+trader offers a line of contracts written for your seed. After linking, restart the game once: the trader and the
+contracts' objective text appear then.
+
+- **What they ask:** kill Scavs, PMCs or both (on a map or anywhere), kill a boss, survive and extract from a map, or
+  hand over found-in-raid items. Early contracts use one objective and your starting map; later ones use two or
+  three, bigger counts, bosses and pricier items.
+- **Order:** three contracts are open at the start. Each later contract follows one (sometimes two) of the few
+  before it, so several are usually open at once. The seed orders them so the maps and traders you can receive make
+  every one possible when it opens.
+- **Rewards:** experience, roubles and standing with a main trader (the trader named in the description). Over the
+  whole line every trader gets enough standing for loyalty level 4. Trader offers that Tarkov's quests would unlock
+  open up as you get through the line instead: an offer opens at the same share of contracts done as its quest's
+  place on the road to Kappa.
+- **The Kappa contract:** offered once every other contract is done. Hand over four valuables, found in raid, and
+  the Kappa container is yours. Finishing it is the goal.
+- **Length:** 125 contracts by default, about half the 254 quests vanilla Kappa takes. `contract_count` sets 40–200.
+- Each contract is a check (`Contract 1`, `Contract 2`, ..., `Contract - Kappa`). Hideout recipes that a vanilla
+  quest unlocks can't be crafted, so they aren't craftsanity checks.
+- The tracker lists the contracts you've taken under the maps their objectives are on.
 
 ### Lootsanity
 

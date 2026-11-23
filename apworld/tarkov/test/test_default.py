@@ -2,6 +2,8 @@ from .bases import TarkovTestBase
 
 
 class TestDefault(TarkovTestBase):
+    options = {"quest_mode": "vanilla"}
+
     def test_starting_items(self) -> None:
         names = {item.name for item in self.multiworld.precollected_items[self.player]}
         self.assertEqual(names, {"Ground Zero Access", "Prapor", "Therapist"})
@@ -50,7 +52,7 @@ class TestDefault(TarkovTestBase):
 
 
 class TestWeaponParts(TarkovTestBase):
-    options = {"starting_map": "customs", "level_pacing": "fast"}
+    options = {"quest_mode": "vanilla", "starting_map": "customs", "level_pacing": "fast"}
 
     def test_gunsmith_needs_flea_or_traders(self) -> None:
         name = "Mechanic - Gunsmith - Part 7"
@@ -72,7 +74,7 @@ class TestWeaponParts(TarkovTestBase):
 
 
 class TestLabKeycard(TarkovTestBase):
-    options = {"starting_map": "customs", "lock_flea_market": True}
+    options = {"quest_mode": "vanilla", "starting_map": "customs", "lock_flea_market": True}
 
     def test_lab_extract_needs_keycard_source(self) -> None:
         location = self.multiworld.get_location("The Lab - Extraction 1", self.player)

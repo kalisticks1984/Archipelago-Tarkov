@@ -100,7 +100,9 @@ public class LootPools(
 
             if (itemHelper.IsOfBaseclass(tpl, BaseClasses.WEAPON))
             {
-                if (!itemHelper.IsOfBaseclass(tpl, BaseClasses.SPECIAL_WEAPON) && presetHelper.GetDefaultPreset(tpl) is not null
+                // Grenade launchers are no starting gun, and their grenades don't stack.
+                if (!itemHelper.IsOfBaseclass(tpl, BaseClasses.SPECIAL_WEAPON) && !itemHelper.IsOfBaseclass(tpl, GrenadeLauncher)
+                    && presetHelper.GetDefaultPreset(tpl) is not null
                     && price is >= 5_000 and <= 200_000)
                 {
                     pools["weapon"].Add(tpl);
@@ -391,6 +393,9 @@ public class LootPools(
     private string Name(MongoId tpl) => itemHelper.GetItemName(tpl) ?? tpl.ToString();
 
     /// <summary>Create one item (with its default preset if it has one) or a stack.</summary>
+    private static readonly MongoId GrenadeLauncher = new("5447bedf4bdc2d87278b4568");
+    private const int MaxSeparateCopies = 30;
+
     public List<Item> CreateItem(MongoId tpl, int stackCount)
     {
         var preset = presetHelper.GetDefaultPreset(tpl);
@@ -418,9 +423,21 @@ public class LootPools(
             Upd = itemHelper.GenerateUpdForItem(template.Value),
         };
 
-        if (itemHelper.IsOfBaseclass(tpl, BaseClasses.AMMO_BOX) || (template.Value.Properties?.StackMaxSize ?? 1) <= 1 || stackCount <= 1)
+        if (itemHelper.IsOfBaseclass(tpl, BaseClasses.AMMO_BOX) || stackCount <= 1)
         {
             return [root];
+        }
+
+        if ((template.Value.Properties?.StackMaxSize ?? 1) <= 1)
+        {
+            // Doesn't stack: that many separate items (a few at most).
+            var copies = new List<Item> { root };
+            for (var i = 1; i < Math.Min(stackCount, MaxSeparateCopies); i++)
+            {
+                copies.Add(new Item { Id = new MongoId(), Template = tpl, Upd = itemHelper.GenerateUpdForItem(template.Value) });
+            }
+
+            return copies;
         }
 
         root.Upd ??= new Upd();

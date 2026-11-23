@@ -217,12 +217,15 @@ def main():
 
     print("generating multiworld...", flush=True)
     multidata = generate({
-        "Runner": {"death_link": "true", "goal_quest_count": 5, "extracts_per_map": 2, "trap_percentage": 0,
+        "Runner": {"quest_mode": "vanilla", "death_link": "true", "goal_quest_count": 5, "extracts_per_map": 2, "trap_percentage": 0,
                    "lootsanity": ["barter", "provisions"], "craftsanity": True,
                    "shop_randomizer": "same_category", "shop_reshuffle": "per_seed"},
         "Buddy": {},
-        "Kitted": {"starting_kit": "replace", "starting_kit_quality": "geared", "goal_quest_count": 5},
-        "Kitted2": {"starting_kit": "replace", "starting_kit_quality": "scrappy", "goal_quest_count": 5},
+        "Kitted": {"quest_mode": "vanilla", "starting_kit": "replace", "starting_kit_quality": "geared",
+                   "goal_quest_count": 5},
+        "Kitted2": {"quest_mode": "vanilla", "starting_kit": "replace", "starting_kit_quality": "scrappy",
+                    "goal_quest_count": 5},
+        "Contractor": {"quest_mode": "archipelago_contracts", "contract_count": 40, "starting_map": "customs"},
     }, os.path.join(WORK, "gen"), seed=12345)
     server = MultiServer(multidata, logfile=os.path.join(WORK, "multiserver.log"))
     watcher = buddy = None
@@ -1107,6 +1110,149 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         money = sum(r.get("upd", {}).get("StackObjectsCount", 1) for r in roots_of(kit["items"]["data"]) if r["_tpl"] == ROUBLES)
         assert 30_000 <= money <= 80_000, money
     _()
+
+    # ---------------------------------------------------------------- Archipelago contracts (Contractor: 40 contracts)
+    ARCH = "617263686970656c61676f30"
+    CONTRACT_BASE = 76_400_000 + 300_000
+    KAPPA = "5c093ca986f7740a1867ab12"
+    contractor = Watcher("Contractor").start()
+    k = SptClient()
+    done = set()
+
+    def contract_quests():
+        return {q["_id"]: q for q in k.call("/client/quest/list")}
+
+    def slot_contracts():
+        st = json.load(open(os.path.join(MOD_DIR, "profiles", f"{k.session}.json"), encoding="utf-8"))
+        return {ct["index"]: ct for ct in st["slotData"]["contracts"]}
+
+    def quest_id_for(index, quests=None):
+        quests = quests or contract_quests()
+        prefix = "Contract - Kappa" if index == 0 else f"Contract {index}:"
+        return next((qid for qid, q in quests.items() if q["name"].startswith(prefix)), None)
+
+    def finish(index):
+        qid = quest_id_for(index)
+        assert qid, f"contract {index} is not offered"
+        k.accept_quest(qid)
+        k.complete_quest(qid)
+        done.add(index)
+        return qid
+
+    @step("contracts: a linked profile sees only the Archipelago trader's contracts; others never see them")
+    def _():
+        k.register_and_login("contractor")
+        k.create_character("Contractor")
+        k.start_game()
+        n = k.bot_ids()
+        k.say(f"connect 127.0.0.1:{AP_PORT} Contractor")
+        k.wait_for_bot("Connected to Archipelago as Contractor", start_count=n, timeout=40)
+        k.wait_for_bot("Archipelago contracts this game: 40 of them", start_count=n, timeout=10)
+        quests = contract_quests()
+        assert quests and all(q["traderId"] == ARCH for q in quests.values()), [q["QuestName"] for q in quests.values()][:5]
+        assert len(quests) == 3, sorted(q["name"] for q in quests.values())
+        assert all(q["name"].startswith(("Contract 1:", "Contract 2:", "Contract 3:")) for q in quests.values())
+        assert any(t["_id"] == ARCH for t in k.call("/client/trading/api/traderSettings"))
+        # A vanilla-quest profile: no contracts, no Archipelago trader.
+        assert not any(q["traderId"] == ARCH for q in c.call("/client/quest/list"))
+        assert not any(t["_id"] == ARCH for t in c.call("/client/trading/api/traderSettings"))
+    _()
+
+    @step("contracts: objective text is in the client locale")
+    def _():
+        quests = contract_quests()
+        loc = k.locale("en")
+        for q in quests.values():
+            for cond in q["conditions"]["AvailableForFinish"]:
+                text = loc.get(cond["id"], "")
+                assert text.startswith(("Eliminate", "Survive", "Hand over")), (cond["id"], text)
+        assert loc.get(f"{ARCH} Nickname") == "Archipelago"
+    _()
+
+    @step("contracts: finishing one sends its check, pays XP and standing, and offers what follows it")
+    def _():
+        contracts = slot_contracts()
+        before = k.pmc()
+        xp_before = before["Info"]["Experience"]
+        client = TRADERS[contracts[1]["client"]]
+        standing_before = before["TradersInfo"].get(client, {}).get("standing", 0)
+        finish(1)
+        contractor.wait_checked(CONTRACT_BASE + 1, timeout=30)
+        after = k.pmc()
+        assert after["Info"]["Experience"] > xp_before
+        assert after["TradersInfo"][client]["standing"] > standing_before
+        offered = contract_quests()
+        for i, ct in contracts.items():
+            if ct["prereqs"] == [1]:
+                assert quest_id_for(i, offered), f"contract {i} should be offered after contract 1"
+    _()
+
+    def prapor_offers():
+        return {i["_id"] for i in k.call(f"/client/trading/api/getTraderAssort/{TRADERS['prapor']}")["items"]
+                if i.get("parentId") == "hideout"}
+
+    def tracker_lists(index, where):
+        tracker = k.call("/archipelago/client/tracker", method="GET")
+        entry = next((m for m in tracker["maps"] if m["key"] == where), {"groups": []})
+        group = next((g for g in entry["groups"] if g["title"] == "Quests in progress"), {"entries": []})
+        return any(e.startswith(f"Contract {index}:") for e in group["entries"]) or None
+
+    tracker_checked = []
+
+    def check_tracker(index, contract):
+        """Accept a contract with a map objective and see it under that map in the tracker. Only a contract whose
+        location isn't checked yet shows: when another slot reaches its goal, Archipelago collects that slot's items
+        from this world and those locations count as done."""
+        where = next((o["map"] for o in contract["objectives"] if o.get("map")), None)
+        st = json.load(open(os.path.join(MOD_DIR, "profiles", f"{k.session}.json"), encoding="utf-8"))
+        if tracker_checked or where is None or CONTRACT_BASE + index in set(st.get("checked", [])):
+            return
+        k.accept_quest(quest_id_for(index))
+        try:
+            wait(lambda: tracker_lists(index, where), timeout=10, what="contract in the tracker")
+        except AssertionError:
+            raise AssertionError(f"contract {index} not under {where} in the tracker: "
+                                 f"{k.call('/archipelago/client/tracker', method='GET')}")
+        tracker_checked.append(index)
+
+    @step("contracts: offers Tarkov's quests would unlock open up; the tracker lists taken contracts by map")
+    def _():
+        quest_locked = set()
+        for group in json.load(open(os.path.join(SPT, "SPT_Data", "database", "traders", TRADERS["prapor"],
+                                                 "questassort.json"), encoding="utf-8")).values():
+            quest_locked.update(group)
+        early = prapor_offers() & quest_locked
+        contracts = slot_contracts()
+        for i in sorted(contracts):
+            if i != 0 and i not in done and len(done) < 20:
+                check_tracker(i, contracts[i])
+                finish(i)
+        later = prapor_offers() & quest_locked
+        assert len(later) > len(early), f"quest-locked Prapor offers: {len(early)} -> {len(later)}"
+        assert tracker_checked, "no unchecked contract with a map objective among the first 20"
+    _()
+
+    @step("contracts: the Kappa contract needs every contract, rewards the Kappa container and is the goal")
+    def _():
+        mark = contractor.mark()
+        for i in sorted(slot_contracts()):
+            if i != 0 and i not in done:
+                assert not quest_id_for(0), "Kappa must not be offered before every contract is done"
+                finish(i)
+        for i in range(1, 41):
+            contractor.wait_checked(CONTRACT_BASE + i, timeout=30)
+        finish(0)
+        contractor.wait_checked(CONTRACT_BASE, timeout=30)
+        contractor.wait_for(lambda p: p.get("cmd") == "PrintJSON" and p.get("type") == "Goal", since=mark, timeout=40)
+        got = any(i["_tpl"] == KAPPA for i in k.pmc()["Inventory"]["items"])
+        if not got:
+            for d in k.call("/client/mail/dialog/list") or []:
+                for m in k.dialog(d["_id"], d.get("type", 2)):
+                    if any(i.get("_tpl") == KAPPA for i in ((m.get("items") or {}).get("data") or [])):
+                        got = True
+        assert got, "the Kappa container was not given"
+    _()
+    contractor.close()
 
     @step("a game made with a different APWorld data version is refused")
     def _():

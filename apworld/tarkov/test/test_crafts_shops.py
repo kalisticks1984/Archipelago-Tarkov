@@ -52,7 +52,7 @@ class TestCraftsanityOff(TarkovTestBase):
 
 
 class TestCraftsanity(TarkovTestBase):
-    options = {"craftsanity": True}
+    options = {"quest_mode": "vanilla", "craftsanity": True}
 
     def test_every_recipe(self) -> None:
         self.assertEqual(_craft_names(self), {c["name"] for c in load_data()["crafts"]})

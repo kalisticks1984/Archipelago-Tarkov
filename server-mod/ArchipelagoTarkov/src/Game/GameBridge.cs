@@ -246,6 +246,18 @@ public class GameBridge(
                     yield return id;
                 }
             }
+
+            if (Contracts.Instance?.For(profileId) is { } contracts)
+            {
+                foreach (var quest in pmc.Quests)
+                {
+                    if (quest.Status == QuestStatusEnum.Success && contracts.Indexes.TryGetValue(quest.QId, out var index)
+                        && data.ContractLocations.TryGetValue(index, out var contractLocation))
+                    {
+                        yield return contractLocation;
+                    }
+                }
+            }
         }
 
         if (pmc.Hideout?.Areas is not null)
