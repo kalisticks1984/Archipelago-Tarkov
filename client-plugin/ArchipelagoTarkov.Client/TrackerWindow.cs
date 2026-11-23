@@ -29,8 +29,13 @@ namespace ArchipelagoTarkov.Client
         private Task<string> _pending;
         private float _nextFetch;
         private float _nextTasksCheck;
-        private Type _tasksScreenType;
-        private bool _tasksTypeLooked;
+        private float _nextTasksSearch;
+
+        // The game's Tasks screen, recorded when the game shows it (see HookTasksScreen). Never searched for in a raid:
+        // a scene search walks every object, and a raid has hundreds of thousands (it stuttered the game).
+        private static Type _tasksScreenType;
+        private static Component _tasksScreen;
+        private static bool _hooked;
         private GUIStyle _header, _current, _entry, _muted;
 
         private bool Visible => _shownByHotkey || (_onTasks && !_closedOnTasks);
@@ -93,22 +98,63 @@ namespace ArchipelagoTarkov.Client
             }
         }
 
-        /// <summary>True while the game's Tasks screen (EFT.UI.TasksScreen) is open. Found by name; false if renamed.</summary>
+        /// <summary>
+        /// Hook the Tasks screen's Show methods so the screen is known the moment the game opens it, without searching the
+        /// scene. Found by name: if a game update renames them, <see cref="TasksScreenOpen"/> falls back to a rare search
+        /// outside raids.
+        /// </summary>
+        internal static void HookTasksScreen(Harmony harmony, BepInEx.Logging.ManualLogSource log)
+        {
+            try
+            {
+                _tasksScreenType = AccessTools.TypeByName("EFT.UI.TasksScreen");
+                if (_tasksScreenType == null)
+                {
+                    log.LogWarning("Archipelago: the Tasks screen was not found in this game version; open the tracker with its hotkey.");
+                    return;
+                }
+
+                var postfix = new HarmonyMethod(typeof(TrackerWindow), nameof(ShownPostfix));
+                foreach (var method in AccessTools.GetDeclaredMethods(_tasksScreenType))
+                {
+                    if (method.Name == "Show" && !method.IsAbstract && !method.ContainsGenericParameters)
+                    {
+                        harmony.Patch(method, postfix: postfix);
+                        _hooked = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning($"Archipelago: could not hook the Tasks screen ({ex.Message}); the tracker opens with its hotkey.");
+            }
+        }
+
+        private static void ShownPostfix(object __instance)
+        {
+            if (__instance is Component screen)
+            {
+                _tasksScreen = screen;
+            }
+        }
+
+        /// <summary>True while the game's Tasks screen is open.</summary>
         private bool TasksScreenOpen()
         {
-            if (!_tasksTypeLooked)
+            if (_tasksScreen != null)
             {
-                _tasksTypeLooked = true;
-                _tasksScreenType = AccessTools.TypeByName("EFT.UI.TasksScreen");
+                return _tasksScreen.gameObject.activeInHierarchy;
             }
 
-            if (_tasksScreenType == null)
+            // Fallback when the Show hook isn't there: search, but never in a raid and at most every few seconds.
+            if (_hooked || _tasksScreenType == null || GameAccess.InRaid() || Time.realtimeSinceStartup < _nextTasksSearch)
             {
                 return false;
             }
 
-            var screen = FindObjectOfType(_tasksScreenType) as Component;
-            return screen != null && screen.gameObject.activeInHierarchy;
+            _nextTasksSearch = Time.realtimeSinceStartup + 5f;
+            _tasksScreen = FindObjectOfType(_tasksScreenType) as Component;
+            return _tasksScreen != null && _tasksScreen.gameObject.activeInHierarchy;
         }
 
         private void OnGUI()

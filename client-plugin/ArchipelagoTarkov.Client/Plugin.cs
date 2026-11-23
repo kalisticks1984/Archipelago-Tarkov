@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using BepInEx;
+using HarmonyLib;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using SPT.Common.Http;
@@ -61,6 +62,7 @@ namespace ArchipelagoTarkov.Client
                 "Show or hide the Archipelago tracker (checks left on each map, and where this raid's Archipelago Items are).");
             TrackerWindow.ShowOnTasks = Config.Bind("Tracker", "Show on the Tasks screen", true,
                 "Open the tracker by itself while the Tasks screen is open.");
+            TrackerWindow.HookTasksScreen(new Harmony(Guid + ".tracker"), Logger);
             gameObject.AddComponent<TrackerWindow>();
 
             Logger.LogInfo($"Archipelago for Tarkov client {Version} loaded");
