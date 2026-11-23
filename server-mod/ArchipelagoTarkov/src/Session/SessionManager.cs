@@ -19,6 +19,8 @@ public class SessionManager(
     ISptLogger<SessionManager> logger,
     GameBridge game,
     ShopRandomizer shops,
+    MerchantStock merchant,
+    SPTarkov.Server.Core.Models.Spt.Tables.TradersTable traderTable,
     ItemHelper itemHelper,
     CoreConfig coreConfig,
     IReadOnlyList<DependencyInjectionContainer> registrations
@@ -35,6 +37,9 @@ public class SessionManager(
 
     public TarkovData Data => _data ?? throw new InvalidOperationException("Archipelago data not loaded");
     public ShopRandomizer Shops => shops;
+    public MerchantStock Merchant => merchant;
+    public GameBridge Game => game;
+    public SPTarkov.Server.Core.Models.Eft.Common.Tables.TraderBase? TraderBase(MongoId traderId) => traderTable.GetTrader(traderId)?.Base;
 
     /// <summary>An item template's display name (English locale).</summary>
     public string ItemName(string tpl)
@@ -229,14 +234,23 @@ public class SessionManager(
     public bool BlocksTraderUnlock(string profileId, string traderId)
     {
         var session = Get(profileId);
-        if (session is null || _data is null || !_data.TradersById.TryGetValue(traderId, out var trader))
+        if (session is null || _data is null || traderId == Contracts.TraderId)
         {
             return false;
         }
 
+        if (!_data.TradersById.TryGetValue(traderId, out var trader))
+        {
+            // Fence, Lightkeeper, Ref, the BTR driver: locked only with Archipelago contracts.
+            lock (session)
+            {
+                return session.Active && session.ContractsMode;
+            }
+        }
+
         lock (session)
         {
-            return session.Active && !session.IsTraderUnlocked(trader.Key);
+            return session.Active && (session.ContractsMode || !session.IsTraderUnlocked(trader.Key));
         }
     }
 

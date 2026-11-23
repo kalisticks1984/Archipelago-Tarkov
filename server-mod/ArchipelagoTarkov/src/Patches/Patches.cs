@@ -89,6 +89,7 @@ public static class PatchInstaller
             new TraderAssortPatch(),
             new TakeProductionPatch(),
             new ClientQuestsPatch(),
+            new TraderLevelPatch(),
             new QuestAssortPatch(),
         ];
 
@@ -221,12 +222,13 @@ public class TraderListPatch : AbstractPatch
             __result = __result.Where(t => t.Id != archipelago).ToList();
         }
 
-        if (!TraderLocks.Applies(__0.ToString()))
+        var (applies, contracts) = TraderLocks.For(__0.ToString());
+        if (!applies)
         {
             return;
         }
 
-        __result = __result.Select(TraderLocks.Locked).ToList();
+        __result = __result.Select(t => TraderLocks.Locked(t, contracts)).ToList();
     }
 }
 
@@ -239,38 +241,52 @@ public class TraderGetPatch : AbstractPatch
     [PatchPostfix]
     public static void Postfix(MongoId? __1, ref TraderBase __result)
     {
-        if (__result is null || __1 is not { } session || !TraderLocks.Applies(session.ToString()))
+        if (__result is null || __1 is not { } session)
         {
             return;
         }
 
-        __result = TraderLocks.Locked(__result);
+        var (applies, contracts) = TraderLocks.For(session.ToString());
+        if (applies)
+        {
+            __result = TraderLocks.Locked(__result, contracts);
+        }
     }
 }
 
 internal static class TraderLocks
 {
-    public static bool Applies(string sessionId)
+    /// <summary>Whether the profile is linked, and whether it plays Archipelago contracts.</summary>
+    public static (bool Applies, bool Contracts) For(string sessionId)
     {
         var manager = SessionManager.Instance;
         var session = manager?.Get(sessionId);
         if (session is null)
         {
-            return false;
+            return (false, false);
         }
 
         lock (session)
         {
-            return session.Active;
+            return (session.Active, session.Active && session.ContractsMode);
         }
     }
 
-    public static TraderBase Locked(TraderBase trader)
+    /// <summary>
+    /// Main traders (or, with contracts, every trader but the Archipelago one) are never "unlocked by default", so
+    /// the profile flag decides.
+    /// </summary>
+    public static TraderBase Locked(TraderBase trader, bool contracts)
     {
         var data = SessionManager.Instance?.Data;
-        return trader.UnlockedByDefault == true && data != null && data.TradersById.ContainsKey(trader.Id.ToString())
-            ? trader with { UnlockedByDefault = false }
-            : trader;
+        if (trader.UnlockedByDefault != true || data is null)
+        {
+            return trader;
+        }
+
+        var id = trader.Id.ToString();
+        var locks = contracts ? id != Contracts.TraderId : data.TradersById.ContainsKey(id);
+        return locks ? trader with { UnlockedByDefault = false } : trader;
     }
 }
 
@@ -429,6 +445,26 @@ public class TraderAssortPatch : AbstractPatch
             var session = manager?.Get(__0.ToString());
             if (manager is null || session is null || __result is null)
             {
+                return;
+            }
+
+            if (__1.ToString() == Contracts.TraderId)
+            {
+                MerchantRequest? request = null;
+                lock (session)
+                {
+                    if (Contracts.Instance?.For(__0.ToString()) is { } set && manager.Game.Pmc(__0.ToString()) is { } pmc)
+                    {
+                        request = new MerchantRequest(pmc, session.UnlockedTraders.ToHashSet(), set, session.ShopMode,
+                            session.ShopEveryRestock, session.ShopSeed, session.ShopStock);
+                    }
+                }
+
+                if (request != null)
+                {
+                    __result = manager.Merchant.Build(request, __result, manager.Data, manager.Shops);
+                }
+
                 return;
             }
 
@@ -872,6 +908,37 @@ public class QuestAssortPatch : AbstractPatch
         catch
         {
             // Keep the vanilla filter.
+        }
+    }
+}
+
+/// <summary>
+/// Archipelago contracts: nothing can be sold to the main traders, so their loyalty level comes from player level and
+/// standing alone (the hideout and the Archipelago trader's stock both use it).
+/// </summary>
+public class TraderLevelPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderHelper), nameof(TraderHelper.LevelUp));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, PmcData __1)
+    {
+        try
+        {
+            var data = SessionManager.Instance?.Data;
+            if (data is null || __1?.Id is not { } pmcId || __1.TradersInfo is null
+                || !data.TradersById.ContainsKey(__0.ToString()) || Contracts.Instance?.For(pmcId.ToString()) is null
+                || !__1.TradersInfo.TryGetValue(__0, out var info) || SessionManager.Instance!.TraderBase(__0) is not { } trader)
+            {
+                return;
+            }
+
+            info.LoyaltyLevel = MerchantStock.EffectiveLevel(trader, __1);
+        }
+        catch
+        {
+            // Keep SPT's level.
         }
     }
 }

@@ -25,7 +25,9 @@ class QuestMode(Choice):
 
     archipelago_contracts: Tarkov's own quests are switched off. The Archipelago trader offers a line of contracts
     written for your seed (kill, survive, boss and hand-in jobs), ordered so the items you can receive make each one
-    possible. Every contract is a check and gives XP, roubles and standing with a main trader. The last contract,
+    possible. Every contract is a check and gives XP, roubles and standing with a main trader. Every other trader is
+    locked: the Archipelago trader sells the stock of each main trader you have received (at the loyalty your level
+    and standing give), and always medications and ammo for your guns. The last contract,
     "Kappa", needs every other contract done and rewards the Kappa container: finishing it is your goal, whatever
     Goal is set to.
     vanilla: Tarkov's own quests are checks (see Quest Traders and Max Quest Level) and Goal applies."""

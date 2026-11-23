@@ -19,6 +19,9 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
   trader, written for your seed and ordered so your items make each one possible. Kill, boss, survive and hand-in
   jobs that pay XP, roubles and trader standing. The line ends with the Kappa contract, which rewards the Kappa
   container and is the goal. 125 contracts by default (vanilla Kappa takes 254 quests), 40 to 200 if you like.
+- **One trader:** with contracts, every other trader is locked. The Archipelago trader sells the stock of each main
+  trader you've received, at the loyalty your level and standing give, and always has medications and ammo for your
+  guns.
 - **215 checks** with the default options: 125 contracts and the Kappa contract (126), every hideout area level (58),
   one PMC extraction per map (10), Scav and PMC kill totals (8) and the first kill of each boss (13).
 - **Vanilla quests instead (`quest_mode: vanilla`):** every main-trader quest that can be completed reliably on a

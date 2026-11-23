@@ -21,7 +21,8 @@ public class GameBridge(
     MailSendService mailSendService,
     TraderHelper traderHelper,
     LootPools lootPools,
-    TraderConfig traderConfig
+    TraderConfig traderConfig,
+    SPTarkov.Server.Core.Models.Spt.Tables.TradersTable traderTable
 )
 {
     /// <summary>Flea bans the mod adds carry this exact timestamp (1 Jan 2100) so they can be told apart from real bans.</summary>
@@ -163,7 +164,8 @@ public class GameBridge(
 
     // ------------------------------------------------------------------ locks
     /// <summary>Make the profile's trader and flea state match the items received so far. Returns true if anything changed.</summary>
-    public bool EnforceLocks(string profileId, TarkovData data, ISet<string> unlockedTraders, bool fleaLocked)
+    public bool EnforceLocks(string profileId, TarkovData data, ISet<string> unlockedTraders, bool fleaLocked,
+        bool contractsMode = false)
     {
         var pmc = Pmc(profileId);
         if (pmc?.TradersInfo is null || pmc.Info is null)
@@ -172,6 +174,43 @@ public class GameBridge(
         }
 
         var changed = false;
+        if (contractsMode)
+        {
+            // Only the Archipelago trader is open. Main traders keep the loyalty level their standing and the player
+            // level give (sales can't count: nothing can be sold to them), for the hideout and the Archipelago stock.
+            var archipelago = new MongoId(Contracts.TraderId);
+            foreach (var (traderId, info) in pmc.TradersInfo)
+            {
+                var open = traderId == archipelago;
+                if ((info.Unlocked ?? false) != open)
+                {
+                    info.Unlocked = open;
+                    changed = true;
+                }
+
+                if (data.TradersById.ContainsKey(traderId.ToString()) && traderTable.GetTrader(traderId)?.Base is { } traderBase)
+                {
+                    var level = MerchantStock.EffectiveLevel(traderBase, pmc);
+                    if (info.LoyaltyLevel != level)
+                    {
+                        info.LoyaltyLevel = level;
+                        changed = true;
+                    }
+
+                    // The game client works the level out itself (SPT doesn't send it), sales included: record the
+                    // sales that level needs, so the client agrees (hideout requirements, trader screens).
+                    var neededSales = traderBase.LoyaltyLevels?.ElementAtOrDefault(level - 1)?.MinSalesSum ?? 0;
+                    if ((info.SalesSum ?? 0) < neededSales)
+                    {
+                        info.SalesSum = neededSales;
+                        changed = true;
+                    }
+                }
+            }
+
+            return EnforceFleaBan(pmc, fleaLocked) || changed;
+        }
+
         foreach (var trader in data.Traders)
         {
             if (!pmc.TradersInfo.TryGetValue(new MongoId(trader.Id), out var info))
@@ -187,22 +226,28 @@ public class GameBridge(
             }
         }
 
-        var bans = pmc.Info.Bans?.ToList() ?? [];
+        return EnforceFleaBan(pmc, fleaLocked) || changed;
+    }
+
+    private static bool EnforceFleaBan(PmcData pmc, bool fleaLocked)
+    {
+        var bans = pmc.Info!.Bans?.ToList() ?? [];
         var ourBan = bans.FirstOrDefault(b => b.BanType == BanType.RagFair && b.DateTime == FleaBanTimestamp);
         if (fleaLocked && ourBan is null)
         {
             bans.Add(new Ban { BanType = BanType.RagFair, DateTime = FleaBanTimestamp });
             pmc.Info.Bans = bans;
-            changed = true;
+            return true;
         }
-        else if (!fleaLocked && ourBan is not null)
+
+        if (!fleaLocked && ourBan is not null)
         {
             bans.Remove(ourBan);
             pmc.Info.Bans = bans;
-            changed = true;
+            return true;
         }
 
-        return changed;
+        return false;
     }
 
     /// <summary>Remove everything the mod changed on the profile (used by the reset command).</summary>
@@ -223,6 +268,16 @@ public class GameBridge(
 
             // Jaeger is normally unlocked by Mechanic's "Introduction" quest.
             info.Unlocked = trader.Key != "jaeger" || (data.JaegerUnlockQuestId != null && QuestCompleted(profileId, data.JaegerUnlockQuestId));
+        }
+
+        // Archipelago contracts locked the other traders too (Fence, Ref, the BTR driver...): back to their default.
+        foreach (var (traderId, info) in pmc.TradersInfo)
+        {
+            if (!data.TradersById.ContainsKey(traderId.ToString()) && traderId != new MongoId(Contracts.TraderId)
+                && traderTable.GetTrader(traderId)?.Base is { UnlockedByDefault: true })
+            {
+                info.Unlocked = true;
+            }
         }
 
         pmc.Info.Bans = (pmc.Info.Bans ?? []).Where(b => !(b.BanType == BanType.RagFair && b.DateTime == FleaBanTimestamp)).ToList();

@@ -21,6 +21,9 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
 - **Quests are Archipelago contracts** (by default). Tarkov's own quests are switched off; the Archipelago trader
   offers a line of contracts written for your seed, ending with the Kappa contract. With `quest_mode: vanilla` you play
   Tarkov's own quests instead.
+- **With contracts, the Archipelago trader is the only trader.** Every other trader is locked; receiving a main trader
+  (Prapor, Skier...) adds that trader's stock to the Archipelago trader, at the loyalty your level and standing give.
+  It always sells medications and ammo for the guns you own or it sells.
 - Everything else about Tarkov stays the same: loot, AI and hideout crafting.
 
 ## What is a check?

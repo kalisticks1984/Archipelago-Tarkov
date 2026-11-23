@@ -1158,6 +1158,130 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         assert not any(t["_id"] == ARCH for t in c.call("/client/trading/api/traderSettings"))
     _()
 
+    # ---------------------------------------------------------------- the Archipelago trader's stock
+    MED_BASES = {"5448f39d4bdc2d0a728b4568", "5448f3ac4bdc2dce718b4569", "5448f3a14bdc2d27728b4569"}
+    WEAPON_BASE = "5422acb9af1c889c16000029"
+    AMMO_BASE = "5485a8684bdc2da71d8b4567"
+
+    AMMO_BOX_BASE = "543be5cb4bdc2deb348b4568"
+
+    def merchant():
+        return k.call(f"/client/trading/api/getTraderAssort/{ARCH}")
+
+    def merchant_tpls(shop=None):
+        shop = shop or merchant()
+        return {i["_tpl"] for i in shop["items"] if i.get("parentId") == "hideout"}
+
+    def vanilla_ll1_tpls(trader_key):
+        a = vanilla_assort(TRADERS[trader_key])
+        quest_locked = set()
+        for group in json.load(open(os.path.join(SPT, "SPT_Data", "database", "traders", TRADERS[trader_key],
+                                                 "questassort.json"), encoding="utf-8")).values():
+            quest_locked.update(group)
+        return {i["_tpl"] for i in a["items"] if i.get("parentId") == "hideout"
+                and a["loyal_level_items"].get(i["_id"], 1) == 1 and i["_id"] not in quest_locked}
+
+    @step("contracts: every trader but the Archipelago one is locked")
+    def _():
+        bases = k.call("/client/trading/api/traderSettings")
+        assert any(t["_id"] == ARCH for t in bases)
+        assert all(not t.get("unlockedByDefault") for t in bases if t["_id"] != ARCH), \
+            [t["nickname"] for t in bases if t.get("unlockedByDefault") and t["_id"] != ARCH]
+        info = wait(lambda: (lambda p: p if p["TradersInfo"].get(TRADERS["prapor"], {}).get("unlocked") is False
+                             else None)(k.pmc()), what="trader locks")["TradersInfo"]
+        opened = [tid for tid, t in info.items() if t.get("unlocked") and tid != ARCH]
+        assert not opened, f"traders still open: {opened}"
+    _()
+
+    def received_traders():
+        st = json.load(open(os.path.join(MOD_DIR, "profiles", f"{k.session}.json"), encoding="utf-8"))
+        by_id = {i["id"]: i for i in DATA["items"]}
+        return {by_id[r["item"]]["params"]["trader"] for r in st.get("received", [])
+                if by_id.get(r["item"], {}).get("kind") == "trader"}
+
+    def guaranteed(tpl):
+        return any(is_a(tpl, b) for b in MED_BASES) or is_a(tpl, AMMO_BASE) or is_a(tpl, AMMO_BOX_BASE)
+
+    @step("contracts: the Archipelago trader sells received traders' stock, medications and ammo for owned guns")
+    def _():
+        shop = merchant()
+        tpls = merchant_tpls(shop)
+        have = received_traders()
+        assert {"prapor", "therapist"} <= have, have  # Contractor's starting traders
+        offered = set()
+        for key in have:
+            missing = vanilla_ll1_tpls(key) - tpls
+            assert not missing, f"{key}'s loyalty 1 stock missing: {sorted(missing)[:5]}"
+            offered |= vanilla_ll1_tpls(key)
+        for key in set(TRADERS) - have:
+            early = {t for t in vanilla_ll1_tpls(key) - offered if not guaranteed(t)} & tpls
+            assert not early, f"{key}'s stock without the {key} item: {[templates()[t]['_name'] for t in sorted(early)][:8]}"
+        meds = set()
+        for key in TRADERS:
+            a = vanilla_assort(TRADERS[key])
+            meds |= {i["_tpl"] for i in a["items"] if i.get("parentId") == "hideout"
+                     and a["loyal_level_items"].get(i["_id"], 1) == 1 and any(is_a(i["_tpl"], b) for b in MED_BASES)}
+        assert meds and meds <= tpls, f"medications missing: {sorted(meds - tpls)[:5]}"
+        guns = [i for i in k.pmc()["Inventory"]["items"] if is_a(i["_tpl"], WEAPON_BASE)]
+        guns += [i for i in shop["items"] if i.get("parentId") == "hideout" and is_a(i["_tpl"], WEAPON_BASE)]
+        sold = set()
+        for i in shop["items"]:
+            if i.get("parentId") == "hideout" and is_a(i["_tpl"], AMMO_BASE):
+                sold.add(i["_tpl"])
+            elif i.get("parentId") == "hideout" and is_a(i["_tpl"], AMMO_BOX_BASE):
+                sold |= {c["_tpl"] for c in shop["items"] if c.get("parentId") == i["_id"] and is_a(c["_tpl"], AMMO_BASE)}
+        unserved = []
+        for gun in {g["_tpl"] for g in guns}:
+            takes = {t for ch in templates()[gun]["_props"].get("Chambers", [])
+                     for f in ch["_props"]["filters"] for t in f.get("Filter", []) if is_a(t, AMMO_BASE)}
+            if takes and not (takes & sold):
+                unserved.append(templates()[gun]["_name"])
+        assert guns and not unserved, f"no ammo for {unserved}"
+        assert all(shop["loyal_level_items"].get(r, 1) == 1 for r in shop["barter_scheme"])
+    _()
+
+    @step("contracts: buying from the Archipelago trader works; selling to it pays")
+    def _():
+        shop = merchant()
+        money = sorted((i for i in k.pmc()["Inventory"]["items"] if i["_tpl"] == ROUBLES),
+                       key=lambda i: -(i.get("upd") or {}).get("StackObjectsCount", 1))[0]
+        cash = (money.get("upd") or {}).get("StackObjectsCount", 1)
+        offer = next(r for r in shop["items"] if r.get("parentId") == "hideout"
+                     and shop["barter_scheme"][r["_id"]][0][0]["_tpl"] == ROUBLES
+                     and shop["barter_scheme"][r["_id"]][0][0]["count"] <= cash
+                     and any(is_a(r["_tpl"], b) for b in MED_BASES))
+        price = shop["barter_scheme"][offer["_id"]][0][0]["count"]
+        result = k.item_event([{"Action": "TradingConfirm", "type": "buy_from_trader", "tid": ARCH,
+                                "item_id": offer["_id"], "count": 1, "scheme_id": 0,
+                                "scheme_items": [{"id": money["_id"], "count": price}]}])
+        new = result["profileChanges"][k.session]["items"]["new"]
+        assert any(i["_tpl"] == offer["_tpl"] for i in new), \
+            (offer["_id"], offer["_tpl"], price, cash, result.get("warnings"), [i["_tpl"] for i in new])
+        bought = next(i for i in new if i["_tpl"] == offer["_tpl"])
+        before = sum((i.get("upd") or {}).get("StackObjectsCount", 1) for i in k.pmc()["Inventory"]["items"]
+                     if i["_tpl"] == ROUBLES)
+        k.item_event([{"Action": "TradingConfirm", "type": "sell_to_trader", "tid": ARCH,
+                       "items": [{"id": bought["_id"], "count": 1, "scheme_id": 0}], "price": 1}])
+        after = sum((i.get("upd") or {}).get("StackObjectsCount", 1) for i in k.pmc()["Inventory"]["items"]
+                    if i["_tpl"] == ROUBLES)
+        assert after > before, f"selling paid nothing ({before} -> {after})"
+    _()
+
+    @step("contracts: receiving a trader adds its stock to the Archipelago trader; the trader stays locked")
+    def _():
+        missing_traders = sorted(set(TRADERS) - received_traders())
+        key = missing_traders[0] if missing_traders else "skier"
+        name = next(t["name"] for t in DATA["traders"] if t["key"] == key)
+        item = next(i["name"] for i in DATA["items"] if i.get("kind") == "trader" and i["params"]["trader"] == key)
+        n = k.bot_ids()
+        server.command(f"/send Contractor {item}")
+        k.wait_for_bot(f"The Archipelago trader now sells {name}'s stock", start_count=n, timeout=30)
+        missing = vanilla_ll1_tpls(key) - merchant_tpls()
+        assert not missing, f"{name}'s stock missing: {sorted(missing)[:5]}"
+        time.sleep(3)
+        assert k.pmc()["TradersInfo"][TRADERS[key]].get("unlocked") is False
+    _()
+
     @step("contracts: objective text is in the client locale")
     def _():
         quests = contract_quests()
@@ -1251,6 +1375,37 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
                     if any(i.get("_tpl") == KAPPA for i in ((m.get("items") or {}).get("data") or [])):
                         got = True
         assert got, "the Kappa container was not given"
+    _()
+
+    @step("contracts: main traders' loyalty comes from player level and standing (nothing can be sold to them)")
+    def _():
+        k.item_event([{"Action": "ReadEncyclopedia", "ids": []}])
+        pmc = k.pmc()
+        level = pmc["Info"]["Level"]
+        raised = 0
+        for key, tid in TRADERS.items():
+            base = json.load(open(os.path.join(SPT, "SPT_Data", "database", "traders", tid, "base.json"), encoding="utf-8"))
+            standing = pmc["TradersInfo"][tid].get("standing", 0)
+            expected = 0
+            for ll in base["loyaltyLevels"]:
+                if ll["minLevel"] <= level and ll["minStanding"] <= standing + 1e-9 and expected < 4:
+                    expected += 1
+                else:
+                    break
+            expected = max(1, expected)
+            info = pmc["TradersInfo"][tid]
+            got = 0  # what the game client works out (SPT doesn't send the level)
+            for ll in base["loyaltyLevels"]:
+                if (ll["minLevel"] <= level and ll["minStanding"] <= info.get("standing", 0) + 1e-9
+                        and ll["minSalesSum"] <= info.get("salesSum", 0) and got < 4):
+                    got += 1
+                else:
+                    break
+            got = max(1, got)
+            assert got == expected, \
+                f"{key}: loyalty {got}, expected {expected} (level {level}, standing {standing}): {pmc['TradersInfo'][tid]}"
+            raised += expected > 1
+        assert raised, "the contract line should raise some loyalty levels"
     _()
     contractor.close()
 

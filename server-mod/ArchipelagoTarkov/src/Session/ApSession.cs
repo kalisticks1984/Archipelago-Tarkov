@@ -75,6 +75,9 @@ public sealed class ApSession
 
     public bool IsMapUnlocked(string mapKey) => !Active || _unlockedMaps.Contains(mapKey);
     public bool IsTraderUnlocked(string traderKey) => !Active || _unlockedTraders.Contains(traderKey);
+
+    /// <summary>Main traders whose item has been received (their keys).</summary>
+    public IReadOnlySet<string> UnlockedTraders => _unlockedTraders;
     public bool FleaLocked => Active && State.SlotFlag("lock_flea_market", true) && !_fleaUnlocked;
     public bool DeathLinkEnabled => Active && State.SlotFlag("death_link");
 
@@ -760,7 +763,7 @@ public sealed class ApSession
                 GiveStartingKit(clearInventory: false);
             }
 
-            if (_game.EnforceLocks(ProfileId, _data, _unlockedTraders, FleaLocked))
+            if (_game.EnforceLocks(ProfileId, _data, _unlockedTraders, FleaLocked, ContractsMode))
             {
                 _profileChanged = true;
             }
@@ -1302,6 +1305,17 @@ public sealed class ApSession
                 var alreadyUnlocked = pmc?.TradersInfo != null
                                       && pmc.TradersInfo.TryGetValue(new SPTarkov.Server.Core.Models.Common.MongoId(trader.Id), out var info)
                                       && (info.Unlocked ?? false);
+                if (ContractsMode)
+                {
+                    // Every trader but the Archipelago one stays locked: it sells this trader's stock instead.
+                    if (!startingItem)
+                    {
+                        Announce($"Received {trader.Name} {from}. The Archipelago trader now sells {trader.Name}'s stock.");
+                    }
+
+                    break;
+                }
+
                 if (!startingItem)
                 {
                     Announce($"Received {trader.Name} {from}.");

@@ -191,7 +191,9 @@ That's it. The connection is remembered for this profile: every time the SPT ser
 **Locked things**
 - **Maps:** you only see the maps you own on the map selection screen. Transits to maps you don't own are switched
   off. A newly received map appears after your next raid or a game restart.
-- **Traders:** Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger are items. A trader you don't own is
+- **Traders:** Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger are items. With Archipelago
+  contracts (the default) every trader is locked and a trader item adds that trader's stock to the Archipelago trader
+  (see [Archipelago contracts](#archipelago-contracts)). With vanilla quests, a trader you don't own is
   locked, even if a quest reward would normally unlock them (Jaeger). Fence, Lightkeeper, the BTR driver and Ref work as
   usual (their quests aren't checks).
 - **Flea Market:** banned until you receive *Flea Market Access* (and then it opens at the usual level).
@@ -232,6 +234,18 @@ With `quest_mode: archipelago_contracts` (the default), Tarkov's own quests are 
 trader offers a line of contracts written for your seed. After linking, restart the game once: the trader and the
 contracts' objective text appear then.
 
+- **The Archipelago trader is the only trader.** Every other trader (the seven main ones, Fence, Lightkeeper, Ref,
+  the BTR driver) stays locked. Instead, the Archipelago trader sells:
+  - the stock of every main trader whose item you've received (*Prapor*, *Skier*...), at the loyalty level you'd have
+    with that trader. Loyalty comes from your player level and that trader's standing (from contracts); sales don't
+    count, since you can't sell to them. The hideout uses the same loyalty levels. With `shop_randomizer`, that stock
+    is randomized as usual;
+  - always, whatever traders you have: medications (every trader's loyalty 1 meds) and ammo for every caliber of the
+    guns you own or it sells (the best your loyalty allows, at least the most basic round; a caliber no trader sells
+    still gets a plain offer at handbook price).
+
+  It buys anything the main traders would buy. There's no insurance, repair or post-raid healing (no Therapist or
+  Prapor to do it).
 - **What they ask:** kill Scavs, PMCs or both (on a map or anywhere), kill a boss, survive and extract from a map, or
   hand over found-in-raid items. Early contracts use one objective and your starting map; later ones use two or
   three, bigger counts, bosses and pricier items.

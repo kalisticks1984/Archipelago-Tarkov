@@ -143,8 +143,9 @@ public class Contracts(
             IsAvailableInPVE = true,
             Insurance = template.Base.Insurance is { } ins ? ins with { Availability = false } : null,
             Repair = template.Base.Repair is { } rep ? rep with { Availability = false } : null,
-            ItemsBuy = new ItemBuyData { Category = [], IdList = [] },
-            ItemsBuyProhibited = new ItemBuyData { Category = [], IdList = [] },
+            // Buys whatever any main trader buys: the others are locked to a contracts profile.
+            ItemsBuy = MainTradersBuy(),
+            ItemsBuyProhibited = template.Base.ItemsBuyProhibited ?? new ItemBuyData { Category = [], IdList = [] },
             LoyaltyLevels = [level with { MinLevel = 1, MinSalesSum = 0, MinStanding = 0 }],
         };
 
@@ -187,6 +188,21 @@ public class Contracts(
             "Nobody has met the client. The contracts arrive anyway, each one paid for by somebody in another world. " +
             "Finish them all and the Kappa container is yours.";
         RefreshLocales();
+    }
+
+    private ItemBuyData MainTradersBuy()
+    {
+        var buy = new ItemBuyData { Category = [], IdList = [] };
+        foreach (var def in _data!.Traders)
+        {
+            if (traders.GetTrader(new MongoId(def.Id))?.Base.ItemsBuy is { } other)
+            {
+                buy.Category.UnionWith(other.Category);
+                buy.IdList.UnionWith(other.IdList);
+            }
+        }
+
+        return buy;
     }
 
     // ------------------------------------------------------------------ contracts
