@@ -12,7 +12,7 @@ The SPT install, mods and settings this branch was played and tested with. The c
 
 | Mod | Version |
 |---|---|
-| ArchipelagoTarkov (this repo) | 2.0.0 |
+| ArchipelagoTarkov (this repo) | 2.1.0 |
 | [SVM] Server Value Modifier | 2.2.3 |
 | SAIN server mod | 4.5.1 |
 | Lots of Loot Redux (archangelwtf) | 4.2.2 |
@@ -28,7 +28,7 @@ The SPT install, mods and settings this branch was played and tested with. The c
 
 | Plugin | Version |
 |---|---|
-| ArchipelagoTarkov.Client (this repo) | 1.0.0 |
+| ArchipelagoTarkov.Client (this repo) | 1.1.0 |
 | SAIN | 4.5.1 |
 | BigBrain (DrakiaXYZ) | 1.5.0 |
 | Waypoints (DrakiaXYZ) | 1.9.0 |

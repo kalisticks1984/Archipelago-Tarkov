@@ -24,7 +24,7 @@ namespace ArchipelagoTarkov.Client
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.pegzzzz.archipelago-tarkov.client";
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
 
         internal static ManualLogSource Log;
 

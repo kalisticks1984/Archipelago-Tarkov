@@ -55,7 +55,7 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
 
 ## Status
 
-Early release (v2.0.0). Everything is tested against a real SPT 4.1.6 server and a real Archipelago server, with a
+Early release (v2.1.0). Everything is tested against a real SPT 4.1.6 server and a real Archipelago server, with a
 script that makes the same requests as the game client, but it hasn't had a full in-game playthrough yet. Please
 [open an issue](https://github.com/Pegzzzz/Archipelago-Tarkov/issues) with your newest `SPT_Runtime\user\logs\spt` file if
 something goes wrong.
