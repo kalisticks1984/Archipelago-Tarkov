@@ -119,7 +119,7 @@ public class LootStandIns(ISptLogger<LootStandIns> logger, CustomItemService cus
 
     /// <summary>
     /// Returns a copy of the map's loot where the first spawn of each targeted type (in random order) is a stand-in.
-    /// The original lists are never edited: other mods (Fika co-op) can share them between players.
+    /// The original lists are never edited: co-op mods can share them between players.
     /// </summary>
     public static List<SpawnpointTemplate> SwapLoot(IEnumerable<SpawnpointTemplate> loot, Func<string, LootDef?> target,
         ISet<string> placed, Random rng, Action<LootDef, string>? onPlaced = null, Func<string, string>? nameOf = null)
