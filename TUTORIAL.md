@@ -240,9 +240,14 @@ contracts' objective text appear then.
     with that trader. Loyalty comes from your player level and that trader's standing (from contracts); sales don't
     count, since you can't sell to them. The hideout uses the same loyalty levels. With `shop_randomizer`, that stock
     is randomized as usual;
-  - always, whatever traders you have: medications (every trader's loyalty 1 meds) and ammo for every caliber of the
-    guns you own or it sells (the best your loyalty allows, at least the most basic round; a caliber no trader sells
-    still gets a plain offer at handbook price).
+  - its own catalog, drawn from every weapon, armor, helmet, med, round, key and magazine in the game and rolled
+    again at every **restock (every 15 minutes)**. Items come in four tiers (weapons, meds and keys by price, armor
+    by the class of its plates, ammo by penetration). Tier 1 is open from the start, tier 2 once a quarter of the
+    contracts is done, tier 3 at half and tier 4 at three quarters; the newest open tier comes up most often.
+    Every restock has at least: 3 weapons (6 in all, fully built), 3 armors and a helmet (with their plates), a med
+    for heavy bleeds, one for light bleeds, one for fractures and a painkiller (plus 4 random meds), 5 random keys,
+    and a magazine and ammo for every gun on sale or that you own. Catalog items cost their handbook price plus
+    25%, with small purchase limits that reset at the restock.
 
   It buys anything the main traders would buy. There's no insurance, repair or post-raid healing (no Therapist or
   Prapor to do it).

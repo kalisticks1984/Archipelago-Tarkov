@@ -23,7 +23,9 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
   Tarkov's own quests instead.
 - **With contracts, the Archipelago trader is the only trader.** Every other trader is locked; receiving a main trader
   (Prapor, Skier...) adds that trader's stock to the Archipelago trader, at the loyalty your level and standing give.
-  It always sells medications and ammo for the guns you own or it sells.
+  It also sells a catalog rolled every 15 minutes from every weapon, armor, med, ammo and key in the game, in tiers
+  that open as you finish contracts: always at least 3 weapons, armor, meds for bleeds and fractures, a painkiller,
+  random keys, and magazines and ammo for its guns and yours.
 - Everything else about Tarkov stays the same: loot, AI and hideout crafting.
 
 ## What is a check?

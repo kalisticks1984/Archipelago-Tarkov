@@ -137,6 +137,7 @@ public class Contracts(
             Avatar = $"/files/trader/avatar/{TraderId}.png",
             Currency = CurrencyType.RUB,
             UnlockedByDefault = true,
+            NextResupply = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() + MerchantStock.RestockSeconds),
             AvailableInRaid = false,
             Medic = false,
             CustomizationSeller = false,
@@ -176,7 +177,7 @@ public class Contracts(
             {
                 Name = "archipelago",
                 TraderId = traderBase.Id,
-                Seconds = new MinMax<int> { Min = 3600, Max = 3600 },
+                Seconds = new MinMax<int> { Min = MerchantStock.RestockSeconds, Max = MerchantStock.RestockSeconds },
             });
         }
 
