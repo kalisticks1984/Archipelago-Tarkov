@@ -15,7 +15,7 @@ namespace ArchipelagoTarkov.Session;
 /// One SPT profile linked to one Archipelago slot. Every public method is called with the session lock
 /// held, either from the SPT update loop or from an HTTP request (chat commands, patches, plugin route).
 /// </summary>
-public sealed class ApSession
+public sealed partial class ApSession
 {
     public const int DataVersion = 1;
     public const int MaxClientMessages = 30;
@@ -527,6 +527,13 @@ public sealed class ApSession
             return;
         }
 
+        KeepGearOnce = false;
+        if (isPmc)
+        {
+            State.PmcRaids++;
+            _dirty = true;
+        }
+
         var survived = result is ExitStatus.SURVIVED or ExitStatus.RUNNER;
         var died = result is ExitStatus.KILLED or ExitStatus.MISSINGINACTION;
         if (isPmc && survived && mapKey != null && IsMapUnlocked(mapKey))
@@ -756,6 +763,7 @@ public sealed class ApSession
             if (!ProfileChangesPaused)
             {
                 ApplyDeferred();
+                ApplyStationLevels();
             }
 
             if (State.StartingKitPending == "extra")
@@ -1201,6 +1209,7 @@ public sealed class ApSession
         _unlockedMaps.Clear();
         _unlockedTraders.Clear();
         _fleaUnlocked = false;
+        _stationItems.Clear();
         foreach (var received in State.Received)
         {
             if (!_data.ItemsById.TryGetValue(received.Item, out var def))
@@ -1218,6 +1227,10 @@ public sealed class ApSession
                     break;
                 case "flea":
                     _fleaUnlocked = true;
+                    break;
+                case "station":
+                    var stationArea = (int)def.Num("area");
+                    _stationItems[stationArea] = _stationItems.GetValueOrDefault(stationArea) + 1;
                     break;
             }
         }
@@ -1330,6 +1343,12 @@ public sealed class ApSession
             }
             case "flea":
                 Announce($"Received Flea Market Access {from}. The Flea Market opens at the usual level.");
+                break;
+            case "station":
+                ReceiveStation(def, from, startingItem);
+                break;
+            case "supplies":
+                SendSupplies(def, from);
                 break;
             case "xp":
             case "rep":
@@ -1493,7 +1512,18 @@ public sealed class ApSession
     {
         var now = DateTime.UtcNow;
         var toSend = new List<long>();
-        foreach (var id in _game.DetectChecks(ProfileId, _data, State).Distinct())
+        List<long> detected;
+        try
+        {
+            // All of it first: nothing is marked as sent if reading the profile fails half way.
+            detected = _game.DetectChecks(ProfileId, _data, State).Distinct().ToList();
+        }
+        catch (InvalidOperationException)
+        {
+            return; // the game was changing the profile; the next update tries again
+        }
+
+        foreach (var id in detected)
         {
             if (!State.SlotLocations.Contains(id) || State.Checked.Contains(id))
             {

@@ -121,6 +121,8 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 | `quest_traders` | all seven | Vanilla quests only: traders whose quests are checks. Quests from the others still work, they just don't send anything |
 | `max_quest_level` | `79` | Vanilla quests only: quests that need a higher player level than this aren't checks. Lower = shorter game |
 | `hideout_checks` | `true` | Each hideout area level you build is a check |
+| `hideout_levels` | `items` | With hideout checks: `items` (building a level sends its check; the level starts working once its station's *Progressive* item arrives, see [The hideout](#the-hideout)) or `built` (building gives the level, as normal) |
+| `hideout_supplies` | `10` | How many *Hideout Supplies* items are in the pool (0–40): each sends the found-in-raid materials for one upgrade you can build next |
 | `extracts_per_map` | `1` | How many successful PMC extractions on each map are checks (0–5) |
 | `kill_milestones` | `short` | Checks for total kills, in PMC and Scav raids on unlocked maps: `off`, `short` (5–50 Scavs, 1–25 PMCs) or `long` (5–300 Scavs, 1–100 PMCs) |
 | `boss_checks` | `true` | The first kill of each boss is a check (13: the Goons count as three) |
@@ -135,6 +137,11 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 | `trap_percentage` | `10` | Percentage of filler items replaced by traps |
 | `starting_kit` | `off` | A random starting kit rolled from the seed (see [The random starting kit](#the-random-starting-kit)): `off`, `extra` (on top of your normal starting stash) or `replace` (instead of it) |
 | `starting_kit_quality` | `standard` | How good the kit is: `scrappy`, `standard` or `geared` |
+| `kit_grace_raids` | `5` | With `starting_kit: replace`: in this many of your first PMC raids, dying keeps your gear (0–20, 0 = off) |
+| `insurance` | `true` | Whether you can insure gear. The Archipelago trader is always an insurer, so the insurance screen works even when every other trader is locked. Off: insuring is refused |
+| `insurance_price` | `100` | Insurance price in percent of normal (0–500) |
+| `post_raid_healing` | `true` | The Archipelago trader heals you for roubles (the treatment screen after a raid, and its Services tab). Off: trader healing is refused |
+| `trader_barters` | `false` | Off: trades paid with items are removed (Archipelago trader, and every trader with vanilla quests); everything is bought with money. On: barters stay |
 | `death_link` | `false` | When your PMC dies in raid, everyone with DeathLink dies, and the other way round |
 
 Short games: `contract_count: 40` is a game of a few evenings. With vanilla quests, `goal_quest_count: 20`,
@@ -203,7 +210,8 @@ That's it. The connection is remembered for this profile: every time the SPT ser
   [Archipelago contracts](#archipelago-contracts).
 - **Quests** (`quest_mode: vanilla`): turning in a quest from one of the main traders sends its check. Event, faction-only, edition-only and
   branching quests (where finishing one fails another) aren't checks, so picking a branch never costs you a check.
-- **Hideout:** each area level you build (if `hideout_checks` is on).
+- **Hideout:** each area level you build (if `hideout_checks` is on). With `hideout_levels: items` (the default)
+  the level itself comes from the multiworld; see [The hideout](#the-hideout).
 - **Extractions:** surviving a raid as a PMC on a map you own. Scav raids and maps you don't own don't count. A
   transit to another map isn't an extraction.
 
@@ -317,6 +325,30 @@ buy is a check.
 - The Lab keycard and Peacekeeper's and Skier's currency exchange never change. With randomized shops the logic
   expects the Flea Market for the later Gunsmith quests' weapon parts.
 
+### The hideout
+
+With `hideout_levels: items` (the default), each station has a *Progressive* item, one per level: *Progressive
+Workbench*, *Progressive Generator* and so on.
+- **Building** a level (paying for it and waiting for it to finish) sends that level's check right away.
+- The level **starts working** (its crafts, bonuses and stash size) once you have as many of the station's
+  Progressive items as the level needs. Until then the station stays at the level below. The Archipelago contact says
+  which level is waiting and for how many items.
+- When the item arrives, the level you already built is applied for you; the hideout shows it after a game
+  restart. You never pay for a level twice: building it again is refused.
+- A Progressive item that arrives before you build the level just lets the level work as soon as you build it.
+
+*Hideout Supplies* (`hideout_supplies`) send the materials for one upgrade you can build next, found in raid, in your
+System messages: the cheapest one whose other stations you already have.
+
+With `hideout_levels: built`, building a level gives you the level and sends its check, as in the normal game.
+
+### Insurance and healing
+
+The Archipelago trader insures gear (on Therapist's terms: returns in 10–20 hours, 95% of the time) and heals you
+after a raid and from its Services tab, in both quest modes. With vanilla quests it sells nothing; Prapor and
+Therapist still insure and heal once you have them. `insurance` and `post_raid_healing` switch these off, and
+`insurance_price` scales every insurance price.
+
 ### The random starting kit
 
 With `starting_kit` on, you get a random kit when you first link your profile. It's rolled from the seed, so
@@ -339,6 +371,8 @@ everyone's is different:
   gear up.
   This only happens on a brand-new profile: if the profile was already played, or you start a raid before
   restarting, your stash is kept and the kit comes on top instead.
+- **Grace raids (`kit_grace_raids`, 5 by default):** with `replace`, dying in one of your first PMC raids keeps your
+  gear (everything you carry, without found-in-raid status). The Archipelago contact counts them down.
 
 ---
 

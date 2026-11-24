@@ -32,6 +32,12 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
   spawn of an unchecked type in each raid is an *Archipelago Item*; extract with it to send the check. You never get
   the original item. The client plugin draws these with the Archipelago symbol.
 - **Craftsanity (optional):** the first craft of each hideout recipe (~180) is a check and gives no item.
+- **Hideout levels as items (default):** building a level sends its check; the level starts working when its
+  station's *Progressive* item (Progressive Workbench...) arrives. *Hideout Supplies* send the materials for an
+  upgrade.
+- **Insurance and healing:** the Archipelago trader insures and heals in both quest modes; YAML options switch either
+  off and scale the insurance price. Barters (trades paid with items) are removed unless `trader_barters` is on.
+- **Kit grace raids:** with `starting_kit: replace`, dying in your first 5 PMC raids keeps your gear.
 - **Randomized shops (optional):** the main traders sell random items of about the same value, from the same category
   or anything, with a share of offers in stock, random purchase limits by value tier and loyalty level, fixed for the
   seed or rerolled at every restock. Not checks.

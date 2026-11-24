@@ -47,6 +47,13 @@ def random_tarkov(rng):
         "death_link": rng.choice([True, False]),
         "starting_kit": rng.choice(["off", "extra", "replace"]),
         "starting_kit_quality": rng.choice(["scrappy", "standard", "geared"]),
+        "kit_grace_raids": rng.choice([0, 5, 20]),
+        "hideout_levels": rng.choice(["items", "built"]),
+        "hideout_supplies": rng.choice([0, 10, 40]),
+        "insurance": rng.choice([True, False]),
+        "insurance_price": rng.choice([0, 100, 500]),
+        "post_raid_healing": rng.choice([True, False]),
+        "trader_barters": rng.choice([True, False]),
         "accessibility": rng.choice(["full", "minimal"]),
         "progression_balancing": rng.choice([0, 50, 99]),
     }

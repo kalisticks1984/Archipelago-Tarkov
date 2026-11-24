@@ -4,7 +4,7 @@
   "eft_build": "0.16.9.5.40743",
   "item_base": 76310000,
   "location_base": 76400000,
-  "data_hash": "cf0e77ddd197c0ca9aa5467a5f373d22f9f4e7c5"
+  "data_hash": "956bab1fa740c9714364a3cd66c769bfacf30fb8"
  },
  "maps": [
   {
@@ -85436,6 +85436,277 @@
     "trap": "scav_cooldown",
     "seconds": 1200
    }
+  },
+  {
+   "name": "Progressive Vents",
+   "id": 76310043,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 0,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Security",
+   "id": 76310044,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 1,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Lavatory",
+   "id": 76310045,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 2,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Stash",
+   "id": 76310046,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 3,
+    "count": 3,
+    "base_level": 1
+   }
+  },
+  {
+   "name": "Progressive Generator",
+   "id": 76310047,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 4,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Heating",
+   "id": 76310048,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 5,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Water Collector",
+   "id": 76310049,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 6,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Medstation",
+   "id": 76310050,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 7,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Nutrition Unit",
+   "id": 76310051,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 8,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Rest Space",
+   "id": 76310052,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 9,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Workbench",
+   "id": 76310053,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 10,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Intelligence Center",
+   "id": 76310054,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 11,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Shooting Range",
+   "id": 76310055,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 12,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Library",
+   "id": 76310056,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 13,
+    "count": 1,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Scav Case",
+   "id": 76310057,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 14,
+    "count": 1,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Illumination",
+   "id": 76310058,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 15,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Hall of Fame",
+   "id": 76310059,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 16,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Air Filtering Unit",
+   "id": 76310060,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 17,
+    "count": 1,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Solar Power",
+   "id": 76310061,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 18,
+    "count": 1,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Booze Generator",
+   "id": 76310062,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 19,
+    "count": 1,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Bitcoin Farm",
+   "id": 76310063,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 20,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Gym",
+   "id": 76310064,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 23,
+    "count": 1,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Weapon Rack",
+   "id": 76310065,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 24,
+    "count": 3,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Progressive Cultist Circle",
+   "id": 76310066,
+   "kind": "station",
+   "classification": "progression",
+   "params": {
+    "area": 27,
+    "count": 1,
+    "base_level": 0
+   }
+  },
+  {
+   "name": "Hideout Supplies",
+   "id": 76310067,
+   "kind": "supplies",
+   "classification": "useful",
+   "params": {}
   }
  ]
 }

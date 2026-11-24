@@ -22,6 +22,9 @@ public class SessionManager(
     MerchantStock merchant,
     SPTarkov.Server.Core.Models.Spt.Tables.TradersTable traderTable,
     ItemHelper itemHelper,
+    SPTarkov.Server.Core.Routers.EventOutputHolder eventOutputHolder,
+    SPTarkov.Server.Core.Utils.HttpResponseUtil httpResponseUtil,
+    SPTarkov.Server.Core.Utils.Cloners.ICloner cloner,
     CoreConfig coreConfig,
     IReadOnlyList<DependencyInjectionContainer> registrations
 ) : IOnLoad, IOnUpdate
@@ -40,6 +43,17 @@ public class SessionManager(
     public MerchantStock Merchant => merchant;
     public GameBridge Game => game;
     public SPTarkov.Server.Core.Models.Eft.Common.Tables.TraderBase? TraderBase(MongoId traderId) => traderTable.GetTrader(traderId)?.Base;
+
+    /// <summary>A copy of a trader assort, to edit without touching SPT's own.</summary>
+    public SPTarkov.Server.Core.Models.Eft.Common.Tables.TraderAssort CloneAssort(
+        SPTarkov.Server.Core.Models.Eft.Common.Tables.TraderAssort assort) => cloner.Clone(assort)!;
+
+    /// <summary>The response to an inventory action the mod refuses: the game shows the message as an error.</summary>
+    public SPTarkov.Server.Core.Models.Eft.ItemEvent.ItemEventRouterResponse Refuse(MongoId sessionId, string message) =>
+        httpResponseUtil.AppendErrorToOutput(eventOutputHolder.GetOutput(sessionId), message);
+
+    public void AppendError(SPTarkov.Server.Core.Models.Eft.ItemEvent.ItemEventRouterResponse output, string message) =>
+        httpResponseUtil.AppendErrorToOutput(output, message);
 
     /// <summary>An item template's display name (English locale).</summary>
     public string ItemName(string tpl)
@@ -136,6 +150,9 @@ public class SessionManager(
         {
             return Task.FromResult(true);
         }
+
+        // Another mod may switch insurance off for every trader after this one loaded (SVM does).
+        Contracts.Instance?.EnsureServices();
 
         List<ApSession> sessions;
         lock (_lock)

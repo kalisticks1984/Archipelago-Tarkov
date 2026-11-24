@@ -10,12 +10,12 @@ from worlds.AutoWorld import WebWorld, World
 
 from .contracts import Contract, write_contracts
 from .data import load_data
-from .items import (FILLER_WEIGHTS, FLEA_ITEM, GAME_NAME, MAP_ITEMS, TRADER_ITEMS, TRAP_ITEMS, TarkovItem,
-                    item_name_groups, item_name_to_id, item_table)
+from .items import (FILLER_WEIGHTS, FLEA_ITEM, GAME_NAME, MAP_ITEMS, STATION_ITEMS, SUPPLIES_ITEM, TRADER_ITEMS,
+                    TRAP_ITEMS, TarkovItem, item_name_groups, item_name_to_id, item_table)
 from .logic import (ALL_MAPS, FLEA_MIN_LEVEL, LAB_KEYCARD_SOURCES, WEAPON_PARTS_TRADERS, Requirement, RequirementBuilder,
                     maps_needed_for_level)
-from .options import (LOOT_CATEGORY_KEYS, SHORT_KILL_LIMITS, Goal, KillMilestones, QuestMode, ShopRandomizer,
-                      StartingMap, StartingTraders, TarkovOptions)
+from .options import (LOOT_CATEGORY_KEYS, SHORT_KILL_LIMITS, Goal, HideoutLevels, KillMilestones, QuestMode,
+                      ShopRandomizer, StartingMap, StartingTraders, TarkovOptions)
 
 logger = logging.getLogger("Escape from Tarkov")
 
@@ -122,7 +122,7 @@ class TarkovWorld(World):
 
     def __init__(self, multiworld, player):
         super().__init__(multiworld, player)
-        self.requirements = RequirementBuilder()
+        self.requirements = RequirementBuilder()  # replaced in generate_early once options are known
         self.start_map: str = "groundzero"
         self.start_traders: List[str] = []
         self.quest_checks: List[dict] = []
@@ -139,6 +139,7 @@ class TarkovWorld(World):
     # ------------------------------------------------------------------ generation steps
     def generate_early(self) -> None:
         self.start_map = STARTING_MAP_KEYS[self.options.starting_map.value]
+        self.requirements = RequirementBuilder(station_items=self.station_items)
 
         mode = self.options.starting_traders.value
         if mode == StartingTraders.option_prapor_and_therapist:
@@ -207,6 +208,11 @@ class TarkovWorld(World):
         return self.options.quest_mode == QuestMode.option_archipelago_contracts
 
     @property
+    def station_items(self) -> bool:
+        """Hideout levels come as progressive items (they need hideout checks: building is how levels are sent)."""
+        return bool(self.options.hideout_checks) and self.options.hideout_levels == HideoutLevels.option_items
+
+    @property
     def goal_key(self) -> str:
         return "kappa_contract" if self.contracts_mode else self.options.goal.current_key
 
@@ -216,7 +222,7 @@ class TarkovWorld(World):
 
     def craft_requirement(self, craft: dict) -> Requirement:
         """The station level (with everything it needs) and, for quest-unlocked recipes, that quest."""
-        req = self.requirements.hideout_level(craft["area"], craft["level"])
+        req = self.requirements.station_active(craft["area"], craft["level"])
         if craft["quest"]:
             req = req.merge(self.requirements.quest(craft["quest"]))
         return req
@@ -230,6 +236,7 @@ class TarkovWorld(World):
                         or (not self.shops_randomized and WEAPON_PARTS_TRADERS <= traders))
             keycard_ok = frozenset({"labs"}) not in req.clauses  # never true at the start: The Lab is not a start map
             return (req.traders <= traders
+                    and not any(count > 0 for _, count in req.stations)
                     and all(clause & maps for clause in req.clauses)
                     and maps_needed_for_level(req.level, pacing) <= len(maps)
                     and parts_ok and keycard_ok)
@@ -307,6 +314,9 @@ class TarkovWorld(World):
                 pool.append(self.create_item(name))
         if self.options.lock_flea_market:
             pool.append(self.create_item(FLEA_ITEM))
+        if self.station_items:
+            for h in self.hideout_checks:
+                pool.append(self.create_item(STATION_ITEMS[h["area"]]))
 
         total_locations = (len(self.quest_checks) + len(self.hideout_checks) + len(self.extract_checks)
                            + len(self.kill_checks) + len(self.boss_checks) + len(self.loot_checks)
@@ -317,6 +327,10 @@ class TarkovWorld(World):
             raise OptionError(f"Escape from Tarkov ({self.player_name}): {total_locations - loot_excluded} checks are "
                               f"not enough for {len(pool)} required items. Enable more checks.")
         remaining = total_locations - len(pool)
+        supplies = min(self.options.hideout_supplies.value, max(0, remaining - loot_excluded))
+        for _ in range(supplies):
+            pool.append(self.create_item(SUPPLIES_ITEM))
+        remaining -= supplies
         trap_count = 0
         if TRAP_ITEMS and self.options.trap_percentage.value:
             trap_count = remaining * self.options.trap_percentage.value // 100
@@ -356,9 +370,14 @@ class TarkovWorld(World):
                     return True
             return (not flea_locked or state.has(FLEA_ITEM, player)) and state.has_from_list(all_map_items, player, flea_maps)
 
+        stations = [(STATION_ITEMS[area], count) for area, count in sorted(req.stations) if count > 0]
+
         def rule(state: CollectionState) -> bool:
             if trader_items and not state.has_all(trader_items, player):
                 return False
+            for station, count in stations:
+                if not state.has(station, player, count):
+                    return False
             if needs_parts and not (state.has(FLEA_ITEM, player)
                                     or (not shops_random and state.has_all(parts_traders, player))):
                 return False
@@ -445,4 +464,11 @@ class TarkovWorld(World):
             "starting_traders": self.start_traders,
             "starting_kit": self.options.starting_kit.current_key,
             "starting_kit_quality": self.options.starting_kit_quality.current_key,
+            "hideout_levels": "items" if self.station_items else "built",
+            "hideout_supplies": self.options.hideout_supplies.value,
+            "kit_grace_raids": self.options.kit_grace_raids.value,
+            "insurance": bool(self.options.insurance.value),
+            "insurance_price": self.options.insurance_price.value,
+            "post_raid_healing": bool(self.options.post_raid_healing.value),
+            "trader_barters": bool(self.options.trader_barters.value),
         }

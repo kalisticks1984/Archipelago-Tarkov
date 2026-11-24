@@ -108,6 +108,29 @@ class HideoutChecks(DefaultOnToggle):
     display_name = "Hideout Checks"
 
 
+class HideoutLevels(Choice):
+    """What building a hideout level does (with Hideout Checks on).
+
+    items: building a level sends its check, but the level itself comes from the multiworld: each station has a
+    "Progressive <station>" item (Progressive Workbench, Progressive Generator...), one per level. A level you have
+    built starts working, with its bonuses, once enough of its station's items have arrived; until then the station
+    stays at the level below and asks for nothing more.
+    built: building a level gives you the level and sends its check, as in the normal game."""
+    display_name = "Hideout Levels"
+    option_items = 0
+    option_built = 1
+    default = 0
+
+
+class HideoutSupplies(Range):
+    """How many "Hideout Supplies" items are in the pool. Each one sends you the materials for one hideout upgrade you
+    can build next (the cheapest one), found in raid."""
+    display_name = "Hideout Supplies"
+    range_start = 0
+    range_end = 40
+    default = 10
+
+
 class ExtractsPerMap(Range):
     """How many successful PMC extractions on each map are checks.
     For example 2 means the first and second time you survive on Customs both send a check."""
@@ -265,6 +288,42 @@ class StartingKitQuality(Choice):
     default = 1
 
 
+class KitGraceRaids(Range):
+    """With Starting Kit: replace, how many of your first PMC raids let you keep your gear when you die (the
+    insurance returns nothing for those, as nothing was lost). 0 turns it off."""
+    display_name = "Kit Grace Raids"
+    range_start = 0
+    range_end = 20
+    default = 5
+
+
+class Insurance(DefaultOnToggle):
+    """Whether you can insure gear before a raid. The Archipelago trader is always an insurer, so the insurance
+    screen works even when every other trader is locked (or another mod switched insurance off).
+    Off: the insurance screen still shows, but insuring is refused."""
+    display_name = "Insurance"
+
+
+class InsurancePrice(Range):
+    """Insurance price, in percent of the normal price (100 = normal, 50 = half, 300 = three times)."""
+    display_name = "Insurance Price"
+    range_start = 0
+    range_end = 500
+    default = 100
+
+
+class PostRaidHealing(DefaultOnToggle):
+    """The Archipelago trader heals you: after a raid on the treatment screen and from its Services tab, for
+    roubles like Therapist. Off: healing from traders is refused (meds, the hideout and regeneration still work)."""
+    display_name = "Post-Raid Healing"
+
+
+class TraderBarters(Toggle):
+    """Off: trades paid with items (barters) are removed, from the Archipelago trader and from every trader in
+    vanilla quest mode; everything left is bought with money. On: barters stay."""
+    display_name = "Trader Barters"
+
+
 class TarkovDeathLink(DeathLink):
     """When your PMC dies in raid, everyone with DeathLink dies too, and the reverse.
     Receiving a death while in raid needs the optional client plugin; it is ignored outside raids."""
@@ -281,6 +340,8 @@ class TarkovOptions(PerGameCommonOptions):
     quest_traders: QuestTraders
     max_quest_level: MaxQuestLevel
     hideout_checks: HideoutChecks
+    hideout_levels: HideoutLevels
+    hideout_supplies: HideoutSupplies
     extracts_per_map: ExtractsPerMap
     kill_milestones: KillMilestones
     boss_checks: BossChecks
@@ -295,4 +356,9 @@ class TarkovOptions(PerGameCommonOptions):
     trap_percentage: TrapPercentage
     starting_kit: StartingKit
     starting_kit_quality: StartingKitQuality
+    kit_grace_raids: KitGraceRaids
+    insurance: Insurance
+    insurance_price: InsurancePrice
+    post_raid_healing: PostRaidHealing
+    trader_barters: TraderBarters
     death_link: TarkovDeathLink

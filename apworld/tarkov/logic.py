@@ -39,6 +39,8 @@ class Requirement:
     level: int = 0
     # Weapon builds past the first Gunsmith steps need parts from many traders or the Flea Market.
     weapon_parts: bool = False
+    # hideout_levels: items. (station area type, how many of its progressive items) pairs.
+    stations: FrozenSet[Tuple[int, int]] = frozenset()
 
     def merge(self, other: "Requirement") -> "Requirement":
         return Requirement(
@@ -46,7 +48,17 @@ class Requirement:
             _simplify(self.clauses | other.clauses),
             max(self.level, other.level),
             self.weapon_parts or other.weapon_parts,
+            _merge_stations(self.stations, other.stations),
         )
+
+
+def _merge_stations(a: FrozenSet[Tuple[int, int]], b: FrozenSet[Tuple[int, int]]) -> FrozenSet[Tuple[int, int]]:
+    if not a or not b:
+        return a or b
+    best: Dict[int, int] = {}
+    for area, count in a | b:
+        best[area] = max(best.get(area, 0), count)
+    return frozenset(best.items())
 
 
 def _simplify(clauses: FrozenSet[FrozenSet[str]]) -> FrozenSet[FrozenSet[str]]:
@@ -75,8 +87,14 @@ def _objective_clauses(objective_maps: Iterable[List[str]]) -> FrozenSet[FrozenS
 class RequirementBuilder:
     """Computes (and caches) the full requirement of quests and hideout levels."""
 
-    def __init__(self) -> None:
+    def __init__(self, station_items: bool = False) -> None:
+        """station_items: hideout levels come as progressive items (option hideout_levels: items)."""
         data = load_data()
+        self.station_items = station_items
+        self.base_levels: Dict[int, int] = {}
+        for h in data["hideout"]:
+            self.base_levels[h["area"]] = min(self.base_levels.get(h["area"], h["level"]), h["level"])
+        self.base_levels = {area: low - 1 for area, low in self.base_levels.items()}
         self.quests: Dict[str, dict] = {q["id"]: q for q in data["quests"]}
         self.hideout: Dict[Tuple[int, int], dict] = {(h["area"], h["level"]): h for h in data["hideout"]}
         self._quest_cache: Dict[Tuple[str, str], Requirement] = {}
@@ -134,8 +152,16 @@ class RequirementBuilder:
         req = Requirement(level=(level - 1) * 8)
         req = req.merge(self._trader_requirement(h.get("trader_ll", [])))
         for pa, pl in h.get("prereq_areas", []):
-            req = req.merge(self.hideout_level(pa, pl))
+            req = req.merge(self.station_active(pa, pl))
         self._hideout_cache[key] = req
+        return req
+
+    def station_active(self, area: int, level: int) -> Requirement:
+        """A station working at this level (for crafts and other stations): built, and with hideout_levels: items,
+        enough of its progressive items received."""
+        req = self.hideout_level(area, level)
+        if self.station_items and (area, level) in self.hideout:
+            req = req.merge(Requirement(stations=frozenset({(area, level - self.base_levels[area])})))
         return req
 
 

@@ -38,7 +38,8 @@ public static class PatchInstaller
         typeof(LocationController), typeof(TraderHelper), typeof(LocationLifecycleService),
         typeof(ProfileCallbacks), typeof(EventOutputHolder), typeof(ProfileController), typeof(GameCallbacks),
         typeof(BotController), typeof(TraderAssortHelper), typeof(HideoutController), typeof(QuestHelper),
-        typeof(AssortHelper),
+        typeof(AssortHelper), typeof(InsuranceController), typeof(SPTarkov.Server.Core.Services.Commerce.InsuranceService),
+        typeof(HealthController), typeof(SPTarkov.Server.Core.Helpers.InRaid.InRaidHelper),
     ];
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Ready = new();
@@ -91,6 +92,12 @@ public static class PatchInstaller
             new ClientQuestsPatch(),
             new TraderLevelPatch(),
             new QuestAssortPatch(),
+            new InsurePatch(),
+            new InsurancePricePatch(),
+            new HealPatch(),
+            new KeepGearPatch(),
+            new UpgradeCompletePatch(),
+            new UpgradeStartPatch(),
         ];
 
         foreach (var patch in patches)
@@ -215,14 +222,15 @@ public class TraderListPatch : AbstractPatch
             return;
         }
 
-        // The Archipelago trader only exists for profiles playing contracts.
-        if (Contracts.Instance?.For(__0.ToString()) is null)
+        // The Archipelago trader only exists for linked profiles: with contracts it is the only trader; in vanilla quest
+        // mode it sells nothing but insures and heals (the YAML's insurance and healing options).
+        var (applies, contracts) = TraderLocks.For(__0.ToString());
+        if (!applies)
         {
             var archipelago = new MongoId(Contracts.TraderId);
             __result = __result.Where(t => t.Id != archipelago).ToList();
         }
 
-        var (applies, contracts) = TraderLocks.For(__0.ToString());
         if (!applies)
         {
             return;
@@ -456,34 +464,44 @@ public class TraderAssortPatch : AbstractPatch
                     if (Contracts.Instance?.For(__0.ToString()) is { } set && manager.Game.Pmc(__0.ToString()) is { } pmc)
                     {
                         request = new MerchantRequest(pmc, session.UnlockedTraders.ToHashSet(), set, session.ShopMode,
-                            session.ShopEveryRestock, session.ShopSeed, session.ShopStock);
+                            session.ShopEveryRestock, session.ShopSeed, session.ShopStock, !session.BartersRemoved);
                     }
                 }
 
-                if (request != null)
-                {
-                    __result = manager.Merchant.Build(request, __result, manager.Data, manager.Shops);
-                }
-
+                // Vanilla quest mode: the Archipelago trader only insures and heals.
+                __result = request != null
+                    ? manager.Merchant.Build(request, __result, manager.Data, manager.Shops)
+                    : new TraderAssort { Items = [], BarterScheme = new(), LoyalLevelItems = new(), NextResupply = __result.NextResupply };
                 return;
             }
 
             string mode;
-            bool everyRestock;
+            bool everyRestock, barters;
             int seed, stock;
             lock (session)
             {
-                if (!session.IsGatedTrader(__1.ToString()) || (mode = session.ShopMode) == "vanilla")
+                if (!session.IsGatedTrader(__1.ToString()))
                 {
                     return;
                 }
 
+                mode = session.ShopMode;
+                barters = !session.BartersRemoved;
                 everyRestock = session.ShopEveryRestock;
                 seed = session.ShopSeed;
                 stock = session.ShopStock;
             }
 
-            __result = manager.Shops.Randomize(__result, __1.ToString(), mode, everyRestock, seed, stock, manager.Data);
+            if (mode != "vanilla")
+            {
+                __result = manager.Shops.Randomize(__result, __1.ToString(), mode, everyRestock, seed, stock, manager.Data);
+            }
+
+            if (!barters)
+            {
+                // GetAssort's result may be SPT's own copy of the stock: edit a clone.
+                __result = MerchantStock.RemoveBarters(manager.CloneAssort(__result));
+            }
         }
         catch (Exception ex)
         {
@@ -615,6 +633,12 @@ public class RaidEndPatch : AbstractPatch
             lock (session)
             {
                 session.BeforeRaidEnd(__1.Results.Profile, isPmc);
+                // Kit grace raids: a death keeps the gear, so insurance has nothing to send back.
+                if (session.UseKitGrace(isPmc, __1.Results))
+                {
+                    __1.LostInsuredItems = null;
+                }
+
                 // Read the victims as the client sent them, before SPT merges the profile.
                 session.RecordVictims(mapKey, __1.Results.Profile.Stats?.Eft?.Victims);
                 // Take the Archipelago Items out before SPT copies the profile into the stash.

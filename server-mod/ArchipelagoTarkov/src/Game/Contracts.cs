@@ -47,6 +47,7 @@ public class Contracts(
     LocaleTable locales,
     TradersTable traders,
     TraderConfig traderConfig,
+    InsuranceConfig insuranceConfig,
     ImageRouter imageRouter,
     JsonUtil json,
     ItemHelper itemHelper
@@ -54,6 +55,10 @@ public class Contracts(
 {
     /// <summary>"archipelago0" in hex.</summary>
     public const string TraderId = "617263686970656c61676f30";
+    private const string TherapistId = "54cb57776803fa99248b456e";
+
+    /// <summary>Insured items come back from the Archipelago trader with this chance (Therapist's in SPT).</summary>
+    public const double InsuranceReturnChance = 95;
     public const string KappaTpl = "5c093ca986f7740a1867ab12";
     private const string Roubles = "5449016a4bdc2d6f028b456f";
 
@@ -126,7 +131,13 @@ public class Contracts(
 
         var template = traders.GetTrader(new MongoId("54cb50c76803fa8b248b4571"))
                        ?? throw new InvalidOperationException("Prapor is missing from the trader table");
-        var level = template.Base.LoyaltyLevels?.FirstOrDefault() ?? new TraderLoyaltyLevel();
+        // Insurance and healing on Therapist's terms (as SPT ships them: other mods may change Therapist later).
+        var therapist = traders.GetTrader(new MongoId(TherapistId));
+        var level = (template.Base.LoyaltyLevels?.FirstOrDefault() ?? new TraderLoyaltyLevel()) with
+        {
+            InsurancePriceCoefficient = 20,
+            HealPriceCoefficient = 100,
+        };
         var traderBase = template.Base with
         {
             Id = new MongoId(TraderId),
@@ -139,10 +150,21 @@ public class Contracts(
             UnlockedByDefault = true,
             NextResupply = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() + MerchantStock.RestockSeconds),
             AvailableInRaid = false,
-            Medic = false,
+            // The Archipelago trader insures and heals in every quest mode, so the insurance and treatment screens
+            // always have a trader to use (the game's insurance screen breaks with none, which happens when every
+            // insurer is locked or another mod switches insurance off).
+            Medic = true,
             CustomizationSeller = false,
             IsAvailableInPVE = true,
-            Insurance = template.Base.Insurance is { } ins ? ins with { Availability = false } : null,
+            Insurance = new TraderInsurance
+            {
+                Availability = true,
+                ExcludedCategory = (therapist?.Base.Insurance ?? template.Base.Insurance)?.ExcludedCategory ?? [],
+                MinPayment = 0,
+                MinReturnHour = 10,
+                MaxReturnHour = 20,
+                MaxStorageTime = 144,
+            },
             Repair = template.Base.Repair is { } rep ? rep with { Availability = false } : null,
             // Buys whatever any main trader buys: the others are locked to a contracts profile.
             ItemsBuy = MainTradersBuy(),
@@ -160,7 +182,8 @@ public class Contracts(
                 LoyalLevelItems = new(),
                 NextResupply = template.Assort?.NextResupply,
             },
-            Dialogue = new(),
+            // Insurance mail ("insuranceStart", "insuranceFound"...) is written with these message templates.
+            Dialogue = (therapist ?? template).Dialogue?.ToDictionary(e => e.Key, e => e.Value?.ToList()) ?? new(),
             QuestAssort = new()
             {
                 ["started"] = new(),
@@ -170,6 +193,8 @@ public class Contracts(
             Suits = [],
             Services = [],
         };
+
+        insuranceConfig.ReturnChancePercent[traderBase.Id] = InsuranceReturnChance;
 
         if (traderConfig.UpdateTime.All(u => u.TraderId != traderBase.Id))
         {
@@ -189,6 +214,26 @@ public class Contracts(
             "Nobody has met the client. The contracts arrive anyway, each one paid for by somebody in another world. " +
             "Finish them all and the Kappa container is yours.";
         RefreshLocales();
+    }
+
+    /// <summary>
+    /// Keep the trader's insurance and healing on: a mod that loads after this one may switch insurance off for every
+    /// trader (SVM does when its return chances are 0).
+    /// </summary>
+    public void EnsureServices()
+    {
+        if (!TraderReady || traders.GetTrader(new MongoId(TraderId))?.Base is not { } b)
+        {
+            return;
+        }
+
+        if (b.Insurance is { Availability: not true } ins)
+        {
+            ins.Availability = true;
+        }
+
+        b.Medic = true;
+        insuranceConfig.ReturnChancePercent[b.Id] = InsuranceReturnChance;
     }
 
     private ItemBuyData MainTradersBuy()

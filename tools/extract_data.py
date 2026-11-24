@@ -861,6 +861,17 @@ def main(spt_data_dir: str, out_path: str) -> None:
     add_item("Fence Grudge", "trap", "trap", trap="fence_rep", amount=-0.3)
     add_item("Exhaustion", "trap", "trap", trap="exhaustion")
     add_item("Scav Cooldown", "trap", "trap", trap="scav_cooldown", seconds=1200)
+    # Hideout (option hideout_levels: items): one progressive item per station, one per level with a check.
+    # Building a level sends its check; the level itself is active once enough of these have arrived.
+    station_levels = OrderedDict()
+    for h in hideout_records:
+        name = h["name"][len("Hideout - "):h["name"].rindex(" Level ")]
+        station_levels.setdefault(h["area"], [name, 0])[1] += 1
+    for atype, (name, count) in station_levels.items():
+        add_item(f"Progressive {name}", "station", "progression", area=atype, count=count,
+                 base_level=min(h["level"] for h in hideout_records if h["area"] == atype) - 1)
+    # The materials for the next station upgrade, sent as found-in-raid items.
+    add_item("Hideout Supplies", "supplies", "useful")
 
     # A fingerprint of every item and location id/name. The APWorld sends it in slot data and the
     # mod refuses to play a seed made from a different table, instead of silently mismatching ids.

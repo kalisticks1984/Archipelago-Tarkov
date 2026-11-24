@@ -19,7 +19,8 @@ public sealed record MerchantRequest(
     string ShopMode,
     bool ShopEveryRestock,
     int ShopSeed,
-    int ShopStock);
+    int ShopStock,
+    bool Barters = true);
 
 /// <summary>
 /// Archipelago contracts lock every trader but the Archipelago one. It sells:
@@ -233,7 +234,8 @@ public class MerchantStock(TradersTable traders, TemplateTable templates, ItemHe
             foreach (var offer in Offers(stock))
             {
                 var ll = stock.LoyalLevelItems?.GetValueOrDefault(offer.Root.Id, 1) ?? 1;
-                if (ll <= level && QuestOk(offer.Root.Id) && offer.Scheme is not null)
+                if (ll <= level && QuestOk(offer.Root.Id) && offer.Scheme is not null
+                    && (request.Barters || IsMoneyOffer(offer.Scheme)))
                 {
                     Add(result, offer, def.Id, "stock");
                     sold.Add(offer.Root.Template);
@@ -386,6 +388,52 @@ public class MerchantStock(TradersTable traders, TemplateTable templates, ItemHe
 
     // ------------------------------------------------------------------ offers
     private sealed record Offer(Item Root, List<Item> Children, List<List<BarterScheme>>? Scheme);
+
+    private static readonly HashSet<MongoId> Currencies =
+    [
+        new("5449016a4bdc2d6f028b456f"), // roubles
+        new("5696686a4bdc2da3298b456a"), // dollars
+        new("569668774bdc2da2298b4568"), // euros
+    ];
+
+    /// <summary>True when every way to pay for the offer is money (not a barter).</summary>
+    public static bool IsMoneyOffer(List<List<BarterScheme>>? scheme) =>
+        scheme is { Count: > 0 } && scheme.All(option => option.Count > 0 && option.All(p => Currencies.Contains(p.Template)));
+
+    /// <summary>Option trader_barters off: take every barter offer (and its parts) out of an assort.</summary>
+    public static TraderAssort RemoveBarters(TraderAssort assort)
+    {
+        var barters = assort.Items.Where(i => i.ParentId == Hideout
+                                              && !IsMoneyOffer(assort.BarterScheme?.GetValueOrDefault(i.Id))).Select(i => i.Id).ToHashSet();
+        if (barters.Count == 0)
+        {
+            return assort;
+        }
+
+        // Offer roots and every part under them (parent ids are strings; the roots' parent is "hideout").
+        var removed = barters.Select(b => b.ToString()).ToHashSet();
+        bool grew;
+        do
+        {
+            grew = false;
+            foreach (var item in assort.Items)
+            {
+                if (item.ParentId is { } parent && removed.Contains(parent) && removed.Add(item.Id.ToString()))
+                {
+                    grew = true;
+                }
+            }
+        } while (grew);
+
+        assort.Items = assort.Items.Where(i => !removed.Contains(i.Id.ToString())).ToList();
+        foreach (var id in barters)
+        {
+            assort.BarterScheme?.Remove(id);
+            assort.LoyalLevelItems?.Remove(id);
+        }
+
+        return assort;
+    }
 
     private static IEnumerable<Offer> Offers(TraderAssort assort)
     {

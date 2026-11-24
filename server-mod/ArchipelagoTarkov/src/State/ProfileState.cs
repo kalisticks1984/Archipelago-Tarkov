@@ -59,6 +59,12 @@ public sealed class ProfileState
     /// <summary>Craftsanity: hideout recipes finished (and collected) at least once.</summary>
     [JsonPropertyName("craftsDone")] public HashSet<string> CraftsDone { get; set; } = new();
     [JsonPropertyName("goalSent")] public bool GoalSent { get; set; }
+    /// <summary>hideout_levels: items. Hideout area type -> the highest level built (its check sent), active or not.</summary>
+    [JsonPropertyName("hideoutBuilt")] public Dictionary<int, int> HideoutBuilt { get; set; } = new();
+    /// <summary>Hideout Supplies: the upgrades ("area:level") already sent materials for.</summary>
+    [JsonPropertyName("suppliedUpgrades")] public HashSet<string> SuppliedUpgrades { get; set; } = new();
+    /// <summary>PMC raids finished since the game was linked (kit grace raids).</summary>
+    [JsonPropertyName("pmcRaids")] public int PmcRaids { get; set; }
     [JsonPropertyName("collectorWarned")] public bool CollectorWarned { get; set; }
 
     // Random starting kit: "extra" or "replace" while it waits to be given, then StartingKitGiven.
@@ -159,6 +165,9 @@ public sealed class ProfileState
         RaidVictimsCounted.Clear();
         LootFound.Clear();
         CraftsDone.Clear();
+        HideoutBuilt.Clear();
+        SuppliedUpgrades.Clear();
+        PmcRaids = 0;
         GoalSent = false;
         AutoConnect = false;
     }

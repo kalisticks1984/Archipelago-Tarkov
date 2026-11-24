@@ -36,7 +36,8 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
 - With `quest_mode: vanilla`: completing a quest from one of the seven main traders. Quests that can't be completed
   reliably (seasonal events, faction-only quests, branching quests where completing one fails another) are not
   checks.
-- Building a hideout area level (optional).
+- Building a hideout area level (optional). By default the level itself is an item: it starts working when its
+  station's *Progressive* item arrives.
 - Surviving and extracting from a map, a number of times per map (optional).
 - Reaching a total number of Scav or PMC kills (optional). Kills in PMC and Scav raids both count, on unlocked maps.
 - Killing each boss for the first time (optional): Reshala, Killa, Shturman, Glukhar, Sanitar, Tagilla, Kaban,
@@ -50,7 +51,8 @@ Traders' shops can also be randomized (`shop_randomizer`); what you buy is never
 
 ## What items can I receive?
 
-Besides map, trader and Flea Market unlocks you can receive experience, trader reputation, money, and crates of
+Besides map, trader and Flea Market unlocks you can receive hideout station levels (*Progressive Workbench*...),
+*Hideout Supplies* (the materials for an upgrade), experience, trader reputation, money, and crates of
 weapons, armor, medicine, ammo, keys, stimulants, barter goods and provisions. Physical items arrive in your
 **System** messages in the in-game messenger; open the message and press "Receive" to collect them. The **Archipelago**
 contact tells you what you received.

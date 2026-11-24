@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -48,6 +49,7 @@ for _q in DATA["quests"]:
     QUEST_BY_NAME.setdefault(_q["name"], _q)
 ITEMS = {i["name"]: i for i in DATA["items"]}
 LOC_IDS = {}
+KITTED = {}  # the starting kit steps' clients, for the steps after theirs
 for _q in DATA["quests"]:
     if _q["check"]:
         LOC_IDS[_q["location_name"]] = _q["location_id"]
@@ -222,13 +224,15 @@ def main():
     multidata = generate({
         "Runner": {"quest_mode": "vanilla", "death_link": "true", "goal_quest_count": 5, "extracts_per_map": 2, "trap_percentage": 0,
                    "lootsanity": ["barter", "provisions"], "craftsanity": True,
-                   "shop_randomizer": "same_category", "shop_reshuffle": "per_seed"},
+                   "shop_randomizer": "same_category", "shop_reshuffle": "per_seed",
+                   "trader_barters": True, "hideout_levels": "built"},
         "Buddy": {},
         "Kitted": {"quest_mode": "vanilla", "starting_kit": "replace", "starting_kit_quality": "geared",
                    "goal_quest_count": 5},
         "Kitted2": {"quest_mode": "vanilla", "starting_kit": "replace", "starting_kit_quality": "scrappy",
-                    "goal_quest_count": 5},
-        "Contractor": {"quest_mode": "archipelago_contracts", "contract_count": 40, "starting_map": "customs"},
+                    "goal_quest_count": 5, "kit_grace_raids": 0, "insurance": False, "post_raid_healing": False},
+        "Contractor": {"quest_mode": "archipelago_contracts", "contract_count": 40, "starting_map": "customs",
+                       "insurance_price": 200},
     }, os.path.join(WORK, "gen"), seed=12345)
     server = MultiServer(multidata, logfile=os.path.join(WORK, "multiserver.log"))
     watcher = buddy = None
@@ -1088,6 +1092,7 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         k.start_game()
         assert len([m for m in deliveries(k) if "your random starting kit (" in (m.get("text") or "").lower()]) == 1
         assert len(k.pmc()["Inventory"]["items"]) == len(inv["items"])
+        KITTED["Kitted"] = k
     _()
 
     @step("random starting kit: a raid before restarting keeps the stash and sends the kit as a message")
@@ -1112,9 +1117,75 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         assert stash_count() == before, "the stash must be kept"
         money = sum(r.get("upd", {}).get("StackObjectsCount", 1) for r in roots_of(kit["items"]["data"]) if r["_tpl"] == ROUBLES)
         assert 30_000 <= money <= 80_000, money
+        KITTED["Kitted2"] = k
+    _()
+
+    ARCH_ID = "617263686970656c61676f30"
+    BANDAGE = "544fb25a4bdc2dfb738b4567"
+
+    def die_with_bandage(client):
+        """A PMC raid ending in death, with a bandage in the pockets: returns whether the bandage is still there."""
+        start = client.raid_start("Sandbox")
+        prof = client.pmc()
+        inv = prof["Inventory"]
+        pockets = next(i for i in inv["items"] if i.get("slotId") == "Pockets" and i.get("parentId") == inv["equipment"])
+        mark = f"{os.getpid():08x}{int(time.time()) & 0xffffffff:08x}{len(inv['items']):08x}"[:24]
+        inv["items"].append({"_id": mark, "_tpl": BANDAGE, "parentId": pockets["_id"], "slotId": "pocket1",
+                             "location": {"x": 0, "y": 0, "r": "Horizontal", "isSearched": True}})
+        client.raid_end(start["serverId"], "Killed", profile=prof)
+        return any(i["_id"] == mark for i in client.pmc()["Inventory"]["items"])
+
+    @step("kit grace raids: a death in the first raids keeps the gear (Kitted); without grace it is lost (Kitted2)")
+    def _():
+        k = KITTED["Kitted"]
+        n = k.bot_ids()
+        assert die_with_bandage(k), "a grace-raid death must keep the gear"
+        k.wait_for_bot("Grace raid", start_count=n, timeout=20)
+        assert not die_with_bandage(KITTED["Kitted2"]), "kit_grace_raids 0: a death costs the gear"
+    _()
+
+    @step("vanilla quest mode: the Archipelago trader insures and heals but sells nothing; barters are removed")
+    def _():
+        k = KITTED["Kitted"]
+        settings = {t["_id"]: t for t in k.call("/client/trading/api/traderSettings")}
+        assert ARCH_ID in settings, "linked profiles see the Archipelago trader"
+        arch = settings[ARCH_ID]
+        assert arch["insurance"]["availability"] and arch["medic"], arch.get("insurance")
+        assert not k.call(f"/client/trading/api/getTraderAssort/{ARCH_ID}")["items"], "it sells nothing in vanilla mode"
+        prapor = k.call(f"/client/trading/api/getTraderAssort/{TRADERS['prapor']}")
+        money = {ROUBLES, USD, "569668774bdc2da2298b4568"}
+        roots = [i["_id"] for i in prapor["items"] if i.get("parentId") == "hideout"]
+        assert roots, "Prapor sells something"
+        barters = [r for r in roots if any(p["_tpl"] not in money for opt in prapor["barter_scheme"][r] for p in opt)]
+        assert not barters, f"{len(barters)} barter offers left (trader_barters is off)"
+        vanilla = vanilla_assort(TRADERS["prapor"])
+        assert any(any(p["_tpl"] not in money for opt in vanilla["barter_scheme"][i["_id"]] for p in opt)
+                   for i in vanilla["items"] if i.get("parentId") == "hideout"), "Prapor normally has barters"
+        pmc = k.pmc()
+        items = [i["_id"] for i in pmc["Inventory"]["items"] if i.get("slotId") == "Pockets"]
+        cost = k.call("/client/insurance/items/list/cost", {"traders": [ARCH_ID], "items": items})
+        assert ARCH_ID in cost, cost
+        # (nothing to pay with yet: the kit's money is still in the mail)
+        r = k.item_event([{"Action": "Insure", "tid": ARCH_ID, "items": []}])
+        assert not r.get("warnings"), r.get("warnings")
+        heal = k.item_event([{"Action": "RestoreHealth", "trader": ARCH_ID, "items": [],
+                              "difference": {"BodyParts": {"Head": {"Health": 1, "Effects": []}}, "Energy": 0, "Hydration": 0}}])
+        assert not heal.get("warnings"), heal.get("warnings")
+    _()
+
+    @step("insurance and healing switched off: insuring and trader healing are refused (Kitted2)")
+    def _():
+        k = KITTED["Kitted2"]
+        items = [i["_id"] for i in k.pmc()["Inventory"]["items"] if i.get("slotId") == "Pockets"]
+        r = k.item_event([{"Action": "Insure", "tid": ARCH_ID, "items": items}])
+        assert any("Insurance is switched off" in (w.get("errmsg") or "") for w in r.get("warnings") or []), r.get("warnings")
+        heal = k.item_event([{"Action": "RestoreHealth", "trader": ARCH_ID, "items": [],
+                              "difference": {"BodyParts": {"Head": {"Health": 1, "Effects": []}}, "Energy": 0, "Hydration": 0}}])
+        assert any("healing is switched off" in (w.get("errmsg") or "") for w in heal.get("warnings") or []), heal.get("warnings")
     _()
 
     # ---------------------------------------------------------------- Archipelago contracts (Contractor: 40 contracts)
+    # (KITTED is filled by the starting kit steps above)
     ARCH = "617263686970656c61676f30"
     CONTRACT_BASE = 76_400_000 + 300_000
     KAPPA = "5c093ca986f7740a1867ab12"
@@ -1156,9 +1227,10 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         assert len(quests) == 3, sorted(q["name"] for q in quests.values())
         assert all(q["name"].startswith(("Contract 1:", "Contract 2:", "Contract 3:")) for q in quests.values())
         assert any(t["_id"] == ARCH for t in k.call("/client/trading/api/traderSettings"))
-        # A vanilla-quest profile: no contracts, no Archipelago trader.
+        # A vanilla-quest profile: no contracts; the Archipelago trader only insures and heals there.
         assert not any(q["traderId"] == ARCH for q in c.call("/client/quest/list"))
-        assert not any(t["_id"] == ARCH for t in c.call("/client/trading/api/traderSettings"))
+        assert any(t["_id"] == ARCH for t in c.call("/client/trading/api/traderSettings"))
+        assert not c.call(f"/client/trading/api/getTraderAssort/{ARCH}")["items"]
     _()
 
     # ---------------------------------------------------------------- the Archipelago trader's stock
@@ -1197,8 +1269,10 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         for group in json.load(open(os.path.join(SPT, "SPT_Data", "database", "traders", TRADERS[trader_key],
                                                  "questassort.json"), encoding="utf-8")).values():
             quest_locked.update(group)
+        money = {ROUBLES, USD, "569668774bdc2da2298b4568"}
         return {i["_id"] for i in a["items"] if i.get("parentId") == "hideout"
-                and a["loyal_level_items"].get(i["_id"], 1) == 1 and i["_id"] not in quest_locked}
+                and a["loyal_level_items"].get(i["_id"], 1) == 1 and i["_id"] not in quest_locked
+                and all(p["_tpl"] in money for opt in a["barter_scheme"][i["_id"]] for p in opt)}
 
     KEY_BASE = "543be5e94bdc2df1348b4568"
     ARMOR_BASES = ("5448e54d4bdc2dcc718b4568", "5448e5284bdc2dcb718b4567", "5a341c4086f77401f2541505")
@@ -1398,6 +1472,49 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
         assert tracker_checked, "no unchecked contract with a map objective among the first 20"
     _()
 
+    def station_state():
+        st = json.load(open(os.path.join(MOD_DIR, "profiles", f"{k.session}.json"), encoding="utf-8"))
+        by_id = {i["id"]: i for i in DATA["items"]}
+        got = {}
+        for r in st.get("received", []):
+            d = by_id.get(r["item"])
+            if d and d["kind"] == "station":
+                got[d["params"]["area"]] = got.get(d["params"]["area"], 0) + 1
+        return st, got
+
+    def area_level(area):
+        return next(a.get("level", 0) for a in k.pmc()["Hideout"]["Areas"] if a["type"] == area)
+
+    @step("hideout levels as items: a built level sends its check and waits for its progressive item")
+    def _():
+        _, got = station_state()
+        stations = {d["params"]["area"]: d["name"] for d in DATA["items"] if d["kind"] == "station"}
+        area = next(a for a, name in stations.items() if got.get(a, 0) == 0 and area_level(a) == 0
+                    and any(h["area"] == a and h["level"] == 1 for h in DATA["hideout"]))
+        name = stations[area][len("Progressive "):]
+        n = k.bot_ids()
+        k.item_event([{"Action": "HideoutUpgradeComplete", "areaType": area, "timestamp": int(time.time())}])
+        assert area_level(area) == 0, "the level waits for its item"
+        k.wait_for_bot(f"Built {name} level 1: check sent", start_count=n, timeout=20)
+        contractor.wait_checked(LOC_IDS[f"Hideout - {name} Level 1"], timeout=30)
+        again = k.item_event([{"Action": "HideoutUpgrade", "areaType": area, "items": [], "timestamp": int(time.time())}])
+        assert any("already built" in (w.get("errmsg") or "") for w in again.get("warnings") or []), again.get("warnings")
+        n = k.bot_ids()
+        server.command(f"/send Contractor {stations[area]}")
+        k.wait_for_bot(f"Received {stations[area]}", start_count=n, timeout=30)
+        wait(lambda: area_level(area) == 1, timeout=30, what=f"{name} level 1 applied")
+    _()
+
+    @step("Hideout Supplies send found-in-raid materials for an upgrade")
+    def _():
+        before = len(deliveries(k))
+        server.command("/send Contractor Hideout Supplies")
+        msg = wait(lambda: next((m for m in deliveries(k)[before:] if "Hideout Supplies" in (m.get("text") or "")), None),
+                   timeout=30, what="supplies message")
+        assert "materials for" in msg["text"], msg["text"]
+        roots = roots_of(msg["items"]["data"])
+        assert roots and all((r.get("upd") or {}).get("SpawnedInSession") for r in roots), roots[:3]
+    _()
     @step("contracts: the Kappa contract needs every contract, rewards the Kappa container and is the goal")
     def _():
         mark = contractor.mark()
@@ -1449,6 +1566,25 @@ def scenario(c: SptClient, server: MultiServer, watcher: Watcher, buddy: Watcher
             raised += expected > 1
         assert raised, "the contract line should raise some loyalty levels"
     _()
+
+    @step("contracts: the Archipelago trader insures at the YAML's price (200%) and has no barters")
+    def _():
+        pmc = k.pmc()
+        handbook = {i["Id"]: i.get("Price") or 0 for i in json.load(open(os.path.join(
+            SPT, "SPT_Data", "database", "templates", "handbook.json"), encoding="utf-8"))["Items"]}
+        gear = [i for i in pmc["Inventory"]["items"] if handbook.get(i["_tpl"], 0) > 1000
+                and i.get("parentId") == pmc["Inventory"]["stash"]][:3]
+        assert gear, "something to insure"
+        cost = k.call("/client/insurance/items/list/cost", {"traders": [ARCH], "items": [i["_id"] for i in gear]})[ARCH]
+        for i in gear:
+            expected = math.ceil(math.ceil(handbook[i["_tpl"]] * 0.20) * 2.0)
+            assert abs(cost[i["_tpl"]] - expected) <= 1, (i["_tpl"], cost[i["_tpl"]], expected)
+        shop = merchant()
+        money = {ROUBLES, USD, "569668774bdc2da2298b4568"}
+        barters = [oid for oid, opts in shop["barter_scheme"].items() if any(p["_tpl"] not in money for o in opts for p in o)]
+        assert not barters, f"{len(barters)} barter offers at the Archipelago trader"
+    _()
+
     contractor.close()
 
     @step("a game made with a different APWorld data version is refused")
