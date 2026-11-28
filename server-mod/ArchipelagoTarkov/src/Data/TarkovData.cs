@@ -17,7 +17,33 @@ public sealed class TarkovData
     [JsonPropertyName("quests")] public List<QuestDef> Quests { get; set; } = [];
     [JsonPropertyName("hideout")] public List<HideoutDef> Hideout { get; set; } = [];
     [JsonPropertyName("extracts")] public List<ExtractDef> Extracts { get; set; } = [];
+    [JsonPropertyName("kills")] public List<KillDef> Kills { get; set; } = [];
+    [JsonPropertyName("bosses")] public List<BossDef> Bosses { get; set; } = [];
+    [JsonPropertyName("loot")] public List<LootDef> Loot { get; set; } = [];
+    [JsonPropertyName("crafts")] public List<CraftDef> Crafts { get; set; } = [];
     [JsonPropertyName("items")] public List<ItemDef> Items { get; set; } = [];
+    [JsonPropertyName("contracts")] public List<ContractDef> Contracts { get; set; } = [];
+
+    /// <summary>Archipelago contracts: contract index (0 = Kappa) -> its check.</summary>
+    [JsonIgnore] public Dictionary<int, long> ContractLocations { get; private set; } = new();
+    /// <summary>
+    /// How far into the road to Kappa each vanilla quest is: the quests it needs (itself included) over the quests
+    /// Collector needs, 0..1. Archipelago contracts unlock a quest's trader offers at that share of the line.
+    /// </summary>
+    [JsonIgnore] public Dictionary<string, double> QuestProgress { get; private set; } = new();
+
+    /// <summary>Craftsanity: hideout recipe id -> its check.</summary>
+    [JsonIgnore] public Dictionary<string, CraftDef> CraftsByRecipe { get; private set; } = new();
+
+    /// <summary>Lootsanity: original item template id -> its check.</summary>
+    [JsonIgnore] public Dictionary<string, LootDef> LootByTpl { get; private set; } = new();
+    /// <summary>Lootsanity: stand-in ("Archipelago Item") template id -> the check it belongs to.</summary>
+    [JsonIgnore] public Dictionary<string, LootDef> LootByStandIn { get; private set; } = new();
+    /// <summary>Lootsanity: every loot location id.</summary>
+    [JsonIgnore] public HashSet<long> LootLocationIds { get; private set; } = new();
+
+    /// <summary>SPT bot role (bossBully, followerBigPipe...) -> boss. Case-insensitive.</summary>
+    [JsonIgnore] public Dictionary<string, BossDef> BossesByRole { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
 
     [JsonIgnore] public Dictionary<long, ItemDef> ItemsById { get; private set; } = new();
     [JsonIgnore] public Dictionary<string, long> QuestLocations { get; private set; } = new();
@@ -72,6 +98,31 @@ public sealed class TarkovData
             LocationNames[e.LocationId] = e.Name;
         }
 
+        foreach (var k in Kills)
+        {
+            LocationNames[k.LocationId] = k.Name;
+        }
+
+        foreach (var b in Bosses)
+        {
+            BossesByRole[b.Role] = b;
+            LocationNames[b.LocationId] = b.Name;
+        }
+
+        foreach (var l in Loot)
+        {
+            LootByTpl[l.Tpl] = l;
+            LootByStandIn[l.StandIn] = l;
+            LootLocationIds.Add(l.LocationId);
+            LocationNames[l.LocationId] = l.Name;
+        }
+
+        foreach (var c in Crafts)
+        {
+            CraftsByRecipe[c.Recipe] = c;
+            LocationNames[c.LocationId] = c.Name;
+        }
+
         foreach (var m in Maps)
         {
             MapsByKey[m.Key] = m;
@@ -87,9 +138,55 @@ public sealed class TarkovData
             TradersById[t.Id] = t;
         }
 
+        foreach (var c in Contracts)
+        {
+            ContractLocations[c.Index] = c.LocationId;
+            LocationNames[c.LocationId] = c.Name;
+        }
+
+        IndexQuestProgress();
         JaegerUnlockQuestId = Quests.FirstOrDefault(q => q.Name == "Introduction" && q.Trader == "mechanic")?.Id;
         ColleaguesPart3Id = Quests.FirstOrDefault(q => q.Name == "Colleagues - Part 3")?.Id;
         SadistId = Quests.FirstOrDefault(q => q.Name == "The Huntsman Path - Sadist")?.Id;
+    }
+
+    private void IndexQuestProgress()
+    {
+        var byId = Quests.ToDictionary(q => q.Id);
+        var cache = new Dictionary<string, HashSet<string>>();
+
+        HashSet<string> Closure(string id)
+        {
+            if (cache.TryGetValue(id, out var done))
+            {
+                return done;
+            }
+
+            var seen = new HashSet<string>();
+            var stack = new Stack<string>([id]);
+            while (stack.Count > 0)
+            {
+                var next = stack.Pop();
+                if (!seen.Add(next) || !byId.TryGetValue(next, out var q))
+                {
+                    continue;
+                }
+
+                foreach (var p in q.Prereqs.Concat(q.FinishPrereqs))
+                {
+                    stack.Push(p.Id);
+                }
+            }
+
+            cache[id] = seen;
+            return seen;
+        }
+
+        var kappa = Math.Max(1, string.IsNullOrEmpty(CollectorQuestId) ? 254 : Closure(CollectorQuestId).Count);
+        foreach (var q in Quests)
+        {
+            QuestProgress[q.Id] = Math.Min(1.0, Closure(q.Id).Count / (double)kappa);
+        }
     }
 }
 
@@ -117,14 +214,30 @@ public sealed class TraderDef
     [JsonPropertyName("id")] public string Id { get; set; } = "";
 }
 
+public sealed class ContractDef
+{
+    [JsonPropertyName("index")] public int Index { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class QuestPrereq
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+}
+
 public sealed class QuestDef
 {
+    [JsonPropertyName("prereqs")] public List<QuestPrereq> Prereqs { get; set; } = [];
+    [JsonPropertyName("finish_prereqs")] public List<QuestPrereq> FinishPrereqs { get; set; } = [];
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("trader")] public string? Trader { get; set; }
     [JsonPropertyName("check")] public bool Check { get; set; }
     [JsonPropertyName("location_id")] public long? LocationId { get; set; }
     [JsonPropertyName("location_name")] public string? LocationName { get; set; }
+    /// <summary>For each objective, the maps it can be done on ("*" = could not be told).</summary>
+    [JsonPropertyName("objective_maps")] public List<List<string>> ObjectiveMaps { get; set; } = [];
 }
 
 public sealed class HideoutDef
@@ -141,6 +254,69 @@ public sealed class ExtractDef
     [JsonPropertyName("count")] public int Count { get; set; }
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class KillDef
+{
+    /// <summary>"scav" or "pmc" (see <see cref="KillTargets"/>).</summary>
+    [JsonPropertyName("target")] public string Target { get; set; } = "";
+    [JsonPropertyName("count")] public int Count { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class BossDef
+{
+    [JsonPropertyName("key")] public string Key { get; set; } = "";
+    [JsonPropertyName("role")] public string Role { get; set; } = "";
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("maps")] public List<string> Maps { get; set; } = [];
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class CraftDef
+{
+    [JsonPropertyName("recipe")] public string Recipe { get; set; } = "";
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("area")] public int Area { get; set; }
+    [JsonPropertyName("level")] public int Level { get; set; }
+    [JsonPropertyName("quest")] public string? Quest { get; set; }
+    /// <summary>The template the recipe produces (what the first craft does not give).</summary>
+    [JsonPropertyName("product")] public string Product { get; set; } = "";
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+}
+
+public sealed class LootDef
+{
+    /// <summary>The original item template.</summary>
+    [JsonPropertyName("tpl")] public string Tpl { get; set; } = "";
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("category")] public string Category { get; set; } = "";
+    [JsonPropertyName("maps")] public List<string> Maps { get; set; } = [];
+    /// <summary>False for things bots use themselves (ammo, magazines, meds, grenades): never swapped on a bot.</summary>
+    [JsonPropertyName("bot_safe")] public bool BotSafe { get; set; }
+    /// <summary>The "Archipelago Item" template that stands in for it in raid.</summary>
+    [JsonPropertyName("stand_in")] public string StandIn { get; set; } = "";
+    [JsonPropertyName("location_id")] public long LocationId { get; set; }
+
+    /// <summary>The item's display name (the location name without its "Loot - " prefix).</summary>
+    [JsonIgnore] public string ItemName => Name.StartsWith("Loot - ", StringComparison.Ordinal) ? Name[7..] : Name;
+}
+
+/// <summary>How a raid victim counts towards the kill milestones.</summary>
+public static class KillTargets
+{
+    public const string Scav = "scav";
+    public const string Pmc = "pmc";
+
+    /// <summary>Savage-side AI (Scavs, bosses, Raiders, Rogues, Cultists) count as Scavs, like the game's quest
+    /// counters; USEC and BEAR count as PMCs.</summary>
+    public static string? ForSide(string? side) => side?.ToLowerInvariant() switch
+    {
+        "savage" => Scav,
+        "usec" or "bear" => Pmc,
+        _ => null,
+    };
 }
 
 public sealed class ItemDef

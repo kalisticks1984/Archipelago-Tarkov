@@ -7,6 +7,7 @@ using ArchipelagoTarkov.State;
 using SPTarkov.DI;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
+using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Spt.Config;
 using SPTarkov.Server.Core.Servers;
 
@@ -17,6 +18,13 @@ namespace ArchipelagoTarkov.Session;
 public class SessionManager(
     ISptLogger<SessionManager> logger,
     GameBridge game,
+    ShopRandomizer shops,
+    MerchantStock merchant,
+    SPTarkov.Server.Core.Models.Spt.Tables.TradersTable traderTable,
+    ItemHelper itemHelper,
+    SPTarkov.Server.Core.Routers.EventOutputHolder eventOutputHolder,
+    SPTarkov.Server.Core.Utils.HttpResponseUtil httpResponseUtil,
+    SPTarkov.Server.Core.Utils.Cloners.ICloner cloner,
     CoreConfig coreConfig,
     IReadOnlyList<DependencyInjectionContainer> registrations
 ) : IOnLoad, IOnUpdate
@@ -31,6 +39,34 @@ public class SessionManager(
     private bool _loaded;
 
     public TarkovData Data => _data ?? throw new InvalidOperationException("Archipelago data not loaded");
+    public ShopRandomizer Shops => shops;
+    public MerchantStock Merchant => merchant;
+    public GameBridge Game => game;
+    public SPTarkov.Server.Core.Models.Eft.Common.Tables.TraderBase? TraderBase(MongoId traderId) => traderTable.GetTrader(traderId)?.Base;
+
+    /// <summary>A copy of a trader assort, to edit without touching SPT's own.</summary>
+    public SPTarkov.Server.Core.Models.Eft.Common.Tables.TraderAssort CloneAssort(
+        SPTarkov.Server.Core.Models.Eft.Common.Tables.TraderAssort assort) => cloner.Clone(assort)!;
+
+    /// <summary>The response to an inventory action the mod refuses: the game shows the message as an error.</summary>
+    public SPTarkov.Server.Core.Models.Eft.ItemEvent.ItemEventRouterResponse Refuse(MongoId sessionId, string message) =>
+        httpResponseUtil.AppendErrorToOutput(eventOutputHolder.GetOutput(sessionId), message);
+
+    public void AppendError(SPTarkov.Server.Core.Models.Eft.ItemEvent.ItemEventRouterResponse output, string message) =>
+        httpResponseUtil.AppendErrorToOutput(output, message);
+
+    /// <summary>An item template's display name (English locale).</summary>
+    public string ItemName(string tpl)
+    {
+        try
+        {
+            return itemHelper.GetItemName(new MongoId(tpl));
+        }
+        catch
+        {
+            return "container";
+        }
+    }
 
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {
@@ -48,6 +84,7 @@ public class SessionManager(
                 foreach (var state in _store.LoadAll())
                 {
                     _sessions[state.ProfileId] = CreateSession(state);
+                    Contracts.Instance?.Build(state);
                 }
             }
 
@@ -114,6 +151,9 @@ public class SessionManager(
             return Task.FromResult(true);
         }
 
+        // Another mod may switch insurance off for every trader after this one loaded (SVM does).
+        Contracts.Instance?.EnsureServices();
+
         List<ApSession> sessions;
         lock (_lock)
         {
@@ -165,6 +205,7 @@ public class SessionManager(
     {
         lock (_lock)
         {
+            Contracts.Instance?.Remove(profileId);
             if (_sessions.Remove(profileId, out var session))
             {
                 lock (session)
@@ -210,14 +251,23 @@ public class SessionManager(
     public bool BlocksTraderUnlock(string profileId, string traderId)
     {
         var session = Get(profileId);
-        if (session is null || _data is null || !_data.TradersById.TryGetValue(traderId, out var trader))
+        if (session is null || _data is null || traderId == Contracts.TraderId)
         {
             return false;
         }
 
+        if (!_data.TradersById.TryGetValue(traderId, out var trader))
+        {
+            // Fence, Lightkeeper, Ref, the BTR driver: locked only with Archipelago contracts.
+            lock (session)
+            {
+                return session.Active && session.ContractsMode;
+            }
+        }
+
         lock (session)
         {
-            return session.Active && !session.IsTraderUnlocked(trader.Key);
+            return session.Active && (session.ContractsMode || !session.IsTraderUnlocked(trader.Key));
         }
     }
 

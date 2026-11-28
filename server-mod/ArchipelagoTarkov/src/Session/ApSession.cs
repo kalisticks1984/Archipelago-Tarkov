@@ -6,6 +6,7 @@ using ArchipelagoTarkov.Data;
 using ArchipelagoTarkov.Game;
 using ArchipelagoTarkov.State;
 using SPTarkov.Server.Core.Models.Eft.Common;
+using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
 
 namespace ArchipelagoTarkov.Session;
@@ -14,7 +15,7 @@ namespace ArchipelagoTarkov.Session;
 /// One SPT profile linked to one Archipelago slot. Every public method is called with the session lock
 /// held, either from the SPT update loop or from an HTTP request (chat commands, patches, plugin route).
 /// </summary>
-public sealed class ApSession
+public sealed partial class ApSession
 {
     public const int DataVersion = 1;
     public const int MaxClientMessages = 30;
@@ -74,8 +75,231 @@ public sealed class ApSession
 
     public bool IsMapUnlocked(string mapKey) => !Active || _unlockedMaps.Contains(mapKey);
     public bool IsTraderUnlocked(string traderKey) => !Active || _unlockedTraders.Contains(traderKey);
+
+    /// <summary>Main traders whose item has been received (their keys).</summary>
+    public IReadOnlySet<string> UnlockedTraders => _unlockedTraders;
     public bool FleaLocked => Active && State.SlotFlag("lock_flea_market", true) && !_fleaUnlocked;
     public bool DeathLinkEnabled => Active && State.SlotFlag("death_link");
+
+    // ------------------------------------------------------------------ lootsanity
+    /// <summary>Item types that already got their one Archipelago Item this raid.</summary>
+    public HashSet<string> LootPlacedThisRaid { get; } = new();
+    /// <summary>Where this raid's Archipelago Items are, for the tracker ("Salewa first aid kit: in a Jacket").</summary>
+    public List<string> LootPlacesThisRaid { get; } = new();
+
+    public void RecordLootPlacement(LootDef def, string place) => LootPlacesThisRaid.Add($"{def.ItemName}: {place}");
+    public Random LootRandom { get; } = new();
+
+    /// <summary>True when stand-ins should spawn on this map: the slot has loot checks and the map is unlocked.</summary>
+    public bool LootsanityOn(string? mapKey) =>
+        LootStandIns.Ready && Active && mapKey != null && IsMapUnlocked(mapKey) && State.SlotLocations.Any(id => _data.LootLocationIds.Contains(id));
+
+    /// <summary>The loot check for an item type, while it is still to be found; null otherwise.</summary>
+    public LootDef? LootTarget(string tpl) =>
+        _data.LootByTpl.TryGetValue(tpl, out var def) && State.SlotLocations.Contains(def.LocationId)
+        && !State.Checked.Contains(def.LocationId) && !State.LootFound.Contains(tpl)
+            ? def
+            : null;
+
+    // ------------------------------------------------------------------ tracker
+    /// <summary>
+    /// The checks still to do, by map (only unlocked maps; the current raid's map first), for the client plugin's
+    /// tracker window. During a raid it lists where this raid's Archipelago Items are.
+    /// </summary>
+    /// <summary>Contracts taken and not turned in yet, with the maps their objectives are on (none: any map).</summary>
+    private IEnumerable<(string Name, List<string> Maps)> ContractsInProgress(Func<long, bool> pending)
+    {
+        var set = Contracts.Instance?.For(ProfileId);
+        if (set is null || !State.HasSlotData || !State.SlotData!.Value.TryGetProperty("contracts", out var list))
+        {
+            yield break;
+        }
+
+        foreach (var contract in list.EnumerateArray())
+        {
+            var index = contract.GetProperty("index").GetInt32();
+            if (!set.QuestIds.TryGetValue(index, out var questId) || !_data.ContractLocations.TryGetValue(index, out var location)
+                || !pending(location)
+                || _game.QuestState(ProfileId, questId.ToString()) is not (QuestStatusEnum.Started or QuestStatusEnum.AvailableForFinish))
+            {
+                continue;
+            }
+
+            var maps = new List<string>();
+            foreach (var o in contract.GetProperty("objectives").EnumerateArray())
+            {
+                if (o.TryGetProperty("map", out var m) && m.ValueKind == JsonValueKind.String)
+                {
+                    maps.Add(m.GetString()!);
+                }
+                else if (o.TryGetProperty("maps", out var bm) && bm.ValueKind == JsonValueKind.Array)
+                {
+                    maps.AddRange(bm.EnumerateArray().Select(x => x.GetString()!));
+                }
+            }
+
+            yield return (index == 0 ? "Contract - Kappa" : contract.GetProperty("title").GetString() ?? $"Contract {index}", maps);
+        }
+    }
+
+    public TrackerResponse BuildTracker()
+    {
+        var response = new TrackerResponse { Linked = Active, RaidMap = InRaid ? RaidMap : null };
+        if (!Active)
+        {
+            return response;
+        }
+
+        var detected = _game.DetectChecks(ProfileId, _data, State).ToHashSet();
+        bool Pending(long id) => State.SlotLocations.Contains(id) && !State.Checked.Contains(id) && !detected.Contains(id);
+
+        var questsByMap = new Dictionary<string, List<string>>();
+        var questsAnywhere = new List<string>();
+        void AddQuest(string name, IEnumerable<string> questMaps)
+        {
+            var list = questMaps.Distinct().ToList();
+            if (list.Count == 0 || list.Contains("*"))
+            {
+                questsAnywhere.Add(name);
+                return;
+            }
+
+            foreach (var map in list)
+            {
+                if (!questsByMap.TryGetValue(map, out var names))
+                {
+                    questsByMap[map] = names = new List<string>();
+                }
+
+                names.Add(name);
+            }
+        }
+
+        foreach (var (name, contractMaps) in ContractsInProgress(Pending))
+        {
+            AddQuest(name, contractMaps);
+        }
+
+        foreach (var q in _data.Quests)
+        {
+            if (q.LocationId is not { } id || !Pending(id))
+            {
+                continue;
+            }
+
+            var status = _game.QuestState(ProfileId, q.Id);
+            if (status is not (QuestStatusEnum.Started or QuestStatusEnum.AvailableForFinish))
+            {
+                continue; // only quests you have taken: the rest can't be done in this raid anyway
+            }
+
+            AddQuest(q.LocationName ?? q.Name, q.ObjectiveMaps.SelectMany(m => m));
+        }
+
+        var maps = _data.Maps.Where(m => IsMapUnlocked(m.Key))
+            .OrderByDescending(m => InRaid && m.Key == RaidMap).ThenBy(m => m.Name);
+        foreach (var map in maps)
+        {
+            var current = InRaid && map.Key == RaidMap;
+            var groups = new List<TrackerGroup>();
+            var quests = questsByMap.GetValueOrDefault(map.Key) ?? [];
+            groups.Add(new TrackerGroup("Quests in progress", quests));
+            groups.Add(new TrackerGroup("Extractions", _data.Extracts
+                .Where(e => e.Map == map.Key && Pending(e.LocationId)).Select(e => e.Name).ToList()));
+            groups.Add(new TrackerGroup("Bosses", _data.Bosses
+                .Where(b => b.Maps.Contains(map.Key) && Pending(b.LocationId)).Select(b => b.Name.Replace("Boss - ", "")).ToList()));
+            if (current && LootPlacesThisRaid.Count > 0)
+            {
+                groups.Add(new TrackerGroup("Archipelago Items this raid", LootPlacesThisRaid.ToList()));
+            }
+            else
+            {
+                var lootHere = _data.Loot.Count(l => l.Maps.Contains(map.Key) && Pending(l.LocationId));
+                groups.Add(new TrackerGroup("Loot checks that can spawn here", [], lootHere));
+            }
+
+            groups.RemoveAll(g => g.Count == 0);
+            response.Maps.Add(new TrackerMap
+            {
+                Key = map.Key, Name = map.Name, Current = current, Total = groups.Sum(g => g.Count), Groups = groups,
+            });
+        }
+
+        var anywhere = new List<TrackerGroup>();
+        var kills = new List<string>();
+        foreach (var target in _data.Kills.Select(k => k.Target).Distinct())
+        {
+            var next = _data.Kills.Where(k => k.Target == target && Pending(k.LocationId)).OrderBy(k => k.Count).FirstOrDefault();
+            if (next != null)
+            {
+                kills.Add($"{next.Name.Replace("Kills - ", "")} ({State.KillCounts.GetValueOrDefault(target)}/{next.Count})");
+            }
+        }
+
+        anywhere.Add(new TrackerGroup("Next kill milestones", kills));
+        anywhere.Add(new TrackerGroup("Quests in progress (any map)", questsAnywhere));
+        anywhere.Add(new TrackerGroup("Loot checks carried by bots (any map)", [],
+            _data.Loot.Count(l => l.Maps.Count == 0 && Pending(l.LocationId))));
+        anywhere.Add(new TrackerGroup("Hideout levels to build", [], _data.Hideout.Count(h => Pending(h.LocationId))));
+        anywhere.Add(new TrackerGroup("Recipes to craft", [], _data.Crafts.Count(c => Pending(c.LocationId))));
+        anywhere.RemoveAll(g => g.Count == 0);
+        response.Anywhere = anywhere;
+        return response;
+    }
+
+    // ------------------------------------------------------------------ craftsanity
+    /// <summary>The craft check for a recipe, while its first craft is still to come; null otherwise.</summary>
+    public CraftDef? CraftTarget(string recipeId) =>
+        Active && _data.CraftsByRecipe.TryGetValue(recipeId, out var def) && State.SlotLocations.Contains(def.LocationId)
+        && !State.Checked.Contains(def.LocationId) && !State.CraftsDone.Contains(recipeId)
+            ? def
+            : null;
+
+    /// <summary>The first craft of a recipe was collected (its product already taken away): record the check.</summary>
+    public void RecordCraft(CraftDef craft)
+    {
+        if (State.CraftsDone.Add(craft.Recipe))
+        {
+            _dirty = true;
+            Say($"Craft check: {craft.Name.Replace("Craft - ", "")}. The first craft of each recipe goes to the multiworld.");
+        }
+    }
+
+    // ------------------------------------------------------------------ shop randomizer
+    /// <summary>"vanilla", "same_category" or "anything".</summary>
+    public string ShopMode => Active ? State.SlotString("shop_randomizer") ?? "vanilla" : "vanilla";
+    public bool ShopEveryRestock => State.SlotString("shop_reshuffle") == "every_restock";
+    public int ShopSeed => State.SlotInt("shop_seed");
+    public int ShopStock => State.SlotInt("shop_stock", 100);
+    public bool IsGatedTrader(string traderId) => _data.TradersById.ContainsKey(traderId);
+
+    /// <summary>
+    /// Raid end: takes every Archipelago Item out of the client's profile and records the ones brought out (all when
+    /// the player survived, only the secure container's when not). Nothing happens on a transit: they travel along.
+    /// </summary>
+    public void CollectLoot(string? mapKey, PmcData? profile, ExitStatus? result)
+    {
+        if (result == ExitStatus.TRANSIT || profile is null)
+        {
+            return;
+        }
+
+        var survived = result is ExitStatus.SURVIVED or ExitStatus.RUNNER;
+        var counted = LootStandIns.TakeStandIns(profile.Inventory, _data, survived);
+        if (counted.Count == 0 || !Active || mapKey is null || !IsMapUnlocked(mapKey))
+        {
+            return;
+        }
+
+        var added = counted.Where(def => State.LootFound.Add(def.Tpl)).Select(def => def.ItemName).ToList();
+        if (added.Count > 0)
+        {
+            _dirty = true;
+            Say(added.Count == 1
+                ? $"Archipelago Item brought out: {added[0]}."
+                : $"{added.Count} Archipelago Items brought out: {string.Join(", ", added.Take(8))}{(added.Count > 8 ? "..." : "")}.");
+        }
+    }
 
     // ================================================================== commands
     /// <summary>Save connection settings and connect. Returns an error message instead when not allowed.</summary>
@@ -115,6 +339,7 @@ public sealed class ApSession
         _openTask = null;
         _game.RemoveLocks(ProfileId, _data);
         State.ResetGame(); // also stops auto-connecting, so the same game is not re-linked by accident
+        Contracts.Instance?.Remove(ProfileId);
         RecomputeUnlocks();
         _inflightChecks.Clear();
         _reachedConnected = false;
@@ -188,7 +413,10 @@ public sealed class ApSession
         return State.SlotString("goal") switch
         {
             "collector" => _game.QuestCompleted(ProfileId, _data.CollectorQuestId) ? "Collector done" : "complete Fence's Collector quest",
+            "kappa_contract" => KappaContractDone() ? "Kappa contract done"
+                : $"finish the Kappa contract ({ContractProgress().Done}/{ContractProgress().Total} contracts done)",
             "all_extracts" => $"extract from every map ({_data.Maps.Count(m => State.ExtractCounts.GetValueOrDefault(m.Key) > 0)}/{_data.Maps.Count})",
+            "bosses" => $"kill every boss ({_data.Bosses.Count(b => State.BossesKilled.Contains(b.Key))}/{_data.Bosses.Count})",
             _ => $"complete {State.SlotInt("goal_quest_count")} quests ({CompletedQuestChecks()} done)",
         };
     }
@@ -199,6 +427,8 @@ public sealed class ApSession
         InRaid = true;
         RaidMap = mapKey;
         RaidStarted = DateTime.UtcNow;
+        LootPlacedThisRaid.Clear();
+        LootPlacesThisRaid.Clear();
         if (State.StartingKitPending == "replace")
         {
             // Never wipe a stash that has seen a raid: hand the kit over on top instead.
@@ -229,6 +459,45 @@ public sealed class ApSession
         _game.AddPendingToRaidResult(postRaidProfile, State, isPmc);
     }
 
+    /// <summary>
+    /// Counts the raid's victims towards the kill milestones and boss checks. Called with the victim list the client
+    /// sent at raid end (PMC or Scav raid, any exit status, including each leg of a transit).
+    /// </summary>
+    public void RecordVictims(string? mapKey, IEnumerable<Victim>? victims)
+    {
+        if (!Active || victims is null || mapKey is null || !IsMapUnlocked(mapKey))
+        {
+            return;
+        }
+
+        foreach (var victim in victims)
+        {
+            if (victim is null)
+            {
+                continue;
+            }
+
+            // Bot profile ids are unique per spawn. Fall back to what identifies the kill in the client's list.
+            var id = victim.ProfileId?.ToString() ?? $"{victim.Name}|{victim.Time}|{victim.Role}";
+            if (!State.RaidVictimsCounted.Add(id))
+            {
+                continue;
+            }
+
+            if (KillTargets.ForSide(victim.Side) is { } target)
+            {
+                State.KillCounts[target] = State.KillCounts.GetValueOrDefault(target) + 1;
+            }
+
+            if (victim.Role is { } role && _data.BossesByRole.TryGetValue(role, out var boss) && State.BossesKilled.Add(boss.Key))
+            {
+                Say($"{boss.Name.Replace("Boss - ", "")} killed.");
+            }
+
+            _dirty = true;
+        }
+    }
+
     private DateTime _profileChangesPausedUntil = DateTime.MinValue;
 
     /// <summary>Hold back experience/reputation/trap changes for a while (the client is reading the profile).</summary>
@@ -247,9 +516,22 @@ public sealed class ApSession
         }
 
         InRaid = false;
+        if (State.RaidVictimsCounted.Count > 0)
+        {
+            State.RaidVictimsCounted.Clear();
+            _dirty = true;
+        }
+
         if (!Active)
         {
             return;
+        }
+
+        KeepGearOnce = false;
+        if (isPmc)
+        {
+            State.PmcRaids++;
+            _dirty = true;
         }
 
         var survived = result is ExitStatus.SURVIVED or ExitStatus.RUNNER;
@@ -481,6 +763,7 @@ public sealed class ApSession
             if (!ProfileChangesPaused)
             {
                 ApplyDeferred();
+                ApplyStationLevels();
             }
 
             if (State.StartingKitPending == "extra")
@@ -488,7 +771,7 @@ public sealed class ApSession
                 GiveStartingKit(clearInventory: false);
             }
 
-            if (_game.EnforceLocks(ProfileId, _data, _unlockedTraders, FleaLocked))
+            if (_game.EnforceLocks(ProfileId, _data, _unlockedTraders, FleaLocked, ContractsMode))
             {
                 _profileChanged = true;
             }
@@ -710,6 +993,7 @@ public sealed class ApSession
 
             var hadDeathLinkTag = DeathLinkEnabled;
             State.SlotData = JsonSerializer.Deserialize<JsonElement>(slotData.ToJsonString());
+            Contracts.Instance?.Build(State);
             if (DeathLinkEnabled && !hadDeathLinkTag)
             {
                 // First connection: slot data was not known when Connect was sent.
@@ -735,6 +1019,13 @@ public sealed class ApSession
             PlanStartingKit();
             Say("Your profile is now linked to this Archipelago game. Maps and traders you don't have yet are locked " +
                 "from now on. Restart the game once so the map list and trader screens update.");
+            if (ContractsMode)
+            {
+                Say($"Your quests are Archipelago contracts this game: {Contracts.Instance?.For(ProfileId)?.Count ?? 0} of them, " +
+                    "offered by the Archipelago trader, then the Kappa contract (your goal). Tarkov's own quests are hidden. " +
+                    "Contract objectives read properly after that restart.");
+            }
+
             if (State.SlotString("goal") == "collector")
             {
                 Say("Kappa tip: accept Therapist's 'Colleagues - Part 3' while Jaeger's 'The Huntsman Path - Sadist' is " +
@@ -918,6 +1209,7 @@ public sealed class ApSession
         _unlockedMaps.Clear();
         _unlockedTraders.Clear();
         _fleaUnlocked = false;
+        _stationItems.Clear();
         foreach (var received in State.Received)
         {
             if (!_data.ItemsById.TryGetValue(received.Item, out var def))
@@ -935,6 +1227,10 @@ public sealed class ApSession
                     break;
                 case "flea":
                     _fleaUnlocked = true;
+                    break;
+                case "station":
+                    var stationArea = (int)def.Num("area");
+                    _stationItems[stationArea] = _stationItems.GetValueOrDefault(stationArea) + 1;
                     break;
             }
         }
@@ -1022,6 +1318,17 @@ public sealed class ApSession
                 var alreadyUnlocked = pmc?.TradersInfo != null
                                       && pmc.TradersInfo.TryGetValue(new SPTarkov.Server.Core.Models.Common.MongoId(trader.Id), out var info)
                                       && (info.Unlocked ?? false);
+                if (ContractsMode)
+                {
+                    // Every trader but the Archipelago one stays locked: it sells this trader's stock instead.
+                    if (!startingItem)
+                    {
+                        Announce($"Received {trader.Name} {from}. The Archipelago trader now sells {trader.Name}'s stock.");
+                    }
+
+                    break;
+                }
+
                 if (!startingItem)
                 {
                     Announce($"Received {trader.Name} {from}.");
@@ -1036,6 +1343,12 @@ public sealed class ApSession
             }
             case "flea":
                 Announce($"Received Flea Market Access {from}. The Flea Market opens at the usual level.");
+                break;
+            case "station":
+                ReceiveStation(def, from, startingItem);
+                break;
+            case "supplies":
+                SendSupplies(def, from);
                 break;
             case "xp":
             case "rep":
@@ -1199,7 +1512,18 @@ public sealed class ApSession
     {
         var now = DateTime.UtcNow;
         var toSend = new List<long>();
-        foreach (var id in _game.DetectChecks(ProfileId, _data, State).Distinct())
+        List<long> detected;
+        try
+        {
+            // All of it first: nothing is marked as sent if reading the profile fails half way.
+            detected = _game.DetectChecks(ProfileId, _data, State).Distinct().ToList();
+        }
+        catch (InvalidOperationException)
+        {
+            return; // the game was changing the profile; the next update tries again
+        }
+
+        foreach (var id in detected)
         {
             if (!State.SlotLocations.Contains(id) || State.Checked.Contains(id))
             {
@@ -1228,10 +1552,30 @@ public sealed class ApSession
         return done.Count(id => _data.QuestLocationIds.Contains(id) && State.SlotLocations.Contains(id));
     }
 
+    public bool ContractsMode => State.SlotString("quest_mode") == "archipelago_contracts";
+
+    /// <summary>Contracts done (the Kappa one not counted), and how many there are.</summary>
+    public (int Done, int Total) ContractProgress()
+    {
+        var set = Contracts.Instance?.For(ProfileId);
+        if (set is null)
+        {
+            return (0, 0);
+        }
+
+        var done = set.QuestIds.Count(kv => kv.Key != 0 && _game.QuestCompleted(ProfileId, kv.Value.ToString()));
+        return (done, set.Count);
+    }
+
+    private bool KappaContractDone() =>
+        Contracts.Instance?.For(ProfileId) is { } set && _game.QuestCompleted(ProfileId, set.KappaId.ToString());
+
     private bool GoalMet() => State.SlotString("goal") switch
     {
+        "kappa_contract" => KappaContractDone(),
         "collector" => _game.QuestCompleted(ProfileId, _data.CollectorQuestId),
         "all_extracts" => _data.Maps.All(m => State.ExtractCounts.GetValueOrDefault(m.Key) > 0),
+        "bosses" => _data.Bosses.All(b => State.BossesKilled.Contains(b.Key)),
         _ => CompletedQuestChecks() >= Math.Max(1, State.SlotInt("goal_quest_count", int.MaxValue)),
     };
 

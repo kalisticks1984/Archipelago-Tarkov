@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using BepInEx;
+using HarmonyLib;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using SPT.Common.Http;
@@ -23,7 +24,7 @@ namespace ArchipelagoTarkov.Client
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.pegzzzz.archipelago-tarkov.client";
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
 
         internal static ManualLogSource Log;
 
@@ -50,6 +51,20 @@ namespace ArchipelagoTarkov.Client
                 new ConfigDescription("How often to ask the SPT server for news during a raid.", new AcceptableValueRange<float>(1f, 30f)));
             _menuInterval = Config.Bind("Advanced", "Poll interval in menus (seconds)", 5f,
                 new ConfigDescription("How often to ask the SPT server for news outside raids.", new AcceptableValueRange<float>(2f, 60f)));
+            var icons = Config.Bind("General", "Archipelago Item icons", true,
+                "Lootsanity: show Archipelago Items with the Archipelago symbol (takes effect after restarting the game).");
+            if (icons.Value)
+            {
+                ArchipelagoIcons.Install(Logger);
+            }
+
+            TrackerWindow.Hotkey = Config.Bind("Tracker", "Toggle tracker", new KeyboardShortcut(KeyCode.F8),
+                "Show or hide the Archipelago tracker (checks left on each map, and where this raid's Archipelago Items are).");
+            TrackerWindow.ShowOnTasks = Config.Bind("Tracker", "Show on the Tasks screen", true,
+                "Open the tracker by itself while the Tasks screen is open.");
+            TrackerWindow.HookTasksScreen(new Harmony(Guid + ".tracker"), Logger);
+            gameObject.AddComponent<TrackerWindow>();
+
             Logger.LogInfo($"Archipelago for Tarkov client {Version} loaded");
         }
 

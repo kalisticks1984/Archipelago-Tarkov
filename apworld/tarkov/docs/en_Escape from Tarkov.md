@@ -18,18 +18,41 @@ This world is played on **SPT 4.1.6** (Single Player Tarkov), which runs on the 
 - **Traders are locked.** Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger are items. You start
   with two of them (Prapor and Therapist by default). Fence, Lightkeeper, the BTR Driver and Ref work as normal.
 - **The Flea Market is banned** until you find `Flea Market Access` (can be turned off).
-- Everything else about Tarkov stays the same: loot, AI, hideout crafting and quest objectives.
+- **Quests are Archipelago contracts** (by default). Tarkov's own quests are switched off; the Archipelago trader
+  offers a line of contracts written for your seed, ending with the Kappa contract. With `quest_mode: vanilla` you play
+  Tarkov's own quests instead.
+- **With contracts, the Archipelago trader is the only trader.** Every other trader is locked; receiving a main trader
+  (Prapor, Skier...) adds that trader's stock to the Archipelago trader, at the loyalty your level and standing give.
+  It also sells a catalog rolled every 15 minutes from every weapon, armor, med, ammo and key in the game, in tiers
+  that open as you finish contracts: always at least 3 weapons, armor, meds for bleeds and fractures, a painkiller,
+  random keys, and magazines and ammo for its guns and yours.
+- Everything else about Tarkov stays the same: loot, AI and hideout crafting.
 
 ## What is a check?
 
-- Completing a quest from one of the seven main traders. Quests that can't be completed reliably (seasonal events,
-  faction-only quests, branching quests where completing one fails another) are not checks.
-- Building a hideout area level (optional).
+- Completing an Archipelago contract (125 by default, set with `contract_count`, plus the Kappa contract). Contracts
+  ask you to kill Scavs, PMCs or a boss, survive a map, or hand over found-in-raid items, and pay XP, roubles and
+  standing with a main trader. Several are open at once, in an order your items make possible.
+- With `quest_mode: vanilla`: completing a quest from one of the seven main traders. Quests that can't be completed
+  reliably (seasonal events, faction-only quests, branching quests where completing one fails another) are not
+  checks.
+- Building a hideout area level (optional). By default the level itself is an item: it starts working when its
+  station's *Progressive* item arrives.
 - Surviving and extracting from a map, a number of times per map (optional).
+- Reaching a total number of Scav or PMC kills (optional). Kills in PMC and Scav raids both count, on unlocked maps.
+- Killing each boss for the first time (optional): Reshala, Killa, Shturman, Glukhar, Sanitar, Tagilla, Kaban,
+  Kollontay, Zryachiy, Partisan, and each of the Goons (Knight, Big Pipe, Birdeye).
+- Lootsanity (optional): bringing out an item type for the first time, for the categories you choose. In each raid the
+  first spawn of an unchecked type is an *Archipelago Item*; extract with it (or keep it in your secure container if
+  you die) to send the check. You don't get the original item.
+- Craftsanity (optional): the first craft of each hideout recipe. That first craft gives no item.
+
+Traders' shops can also be randomized (`shop_randomizer`); what you buy is never a check.
 
 ## What items can I receive?
 
-Besides map, trader and Flea Market unlocks you can receive experience, trader reputation, money, and crates of
+Besides map, trader and Flea Market unlocks you can receive hideout station levels (*Progressive Workbench*...),
+*Hideout Supplies* (the materials for an upgrade), experience, trader reputation, money, and crates of
 weapons, armor, medicine, ammo, keys, stimulants, barter goods and provisions. Physical items arrive in your
 **System** messages in the in-game messenger; open the message and press "Receive" to collect them. The **Archipelago**
 contact tells you what you received.
@@ -45,10 +68,14 @@ a rig, a backpack, meds, food and money), either on top of your normal starting 
 
 ## What is the goal?
 
-One of:
+With Archipelago contracts: finish the Kappa contract. It is offered once every other contract is done and rewards
+the Kappa container.
+
+With vanilla quests, one of:
 - complete a set number of quests that are checks,
 - complete Fence's *Collector* quest (Kappa),
-- extract at least once from every map.
+- extract at least once from every map,
+- kill every boss at least once.
 
 For the Collector goal, take Therapist's *Colleagues - Part 3* before turning in Jaeger's *The Huntsman Path - Sadist*:
 it is only offered while Sadist is in progress. The mod reminds you in game.

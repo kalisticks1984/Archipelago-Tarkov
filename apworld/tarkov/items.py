@@ -42,6 +42,11 @@ item_name_to_id: Dict[str, int] = {name: info.code for name, info in item_table.
 MAP_ITEMS: Dict[str, str] = {info.params["map"]: name for name, info in item_table.items() if info.kind == "map"}
 TRADER_ITEMS: Dict[str, str] = {info.params["trader"]: name for name, info in item_table.items() if info.kind == "trader"}
 FLEA_ITEM = "Flea Market Access"
+# hideout_levels: items. Station area type -> its progressive item, and the levels a Standard profile starts with.
+STATION_ITEMS: Dict[int, str] = {info.params["area"]: name for name, info in item_table.items() if info.kind == "station"}
+STATION_BASE_LEVELS: Dict[int, int] = {info.params["area"]: info.params["base_level"]
+                                       for info in item_table.values() if info.kind == "station"}
+SUPPLIES_ITEM = "Hideout Supplies"
 
 # Relative weights used to fill the rest of the pool after progression items.
 FILLER_WEIGHTS: Dict[str, int] = {
@@ -77,4 +82,5 @@ item_name_groups = {
     "Money": {name for name, info in item_table.items() if info.kind == "money"},
     "Reputation": {name for name, info in item_table.items() if info.kind == "rep"},
     "Traps": set(TRAP_ITEMS),
+    "Hideout Stations": set(STATION_ITEMS.values()),
 }

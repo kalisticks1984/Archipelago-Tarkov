@@ -9,11 +9,21 @@ DOTNET=${SPT_DOTNET:-dotnet}
 PIDFILE="$SPT_DIR/.integration.pid"
 TAILFILE="$SPT_DIR/.integration.tail"
 cd "$SPT_DIR" || exit 1
-if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then echo "already running"; exit 0; fi
-DLL=SPT.Server.Linux.dll; [ -f "$DLL" ] || DLL=SPT.Server.dll
+# On Windows (Git Bash / MSYS2) the server is a native process: track its Windows pid, not an MSYS one.
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) WINDOWS=1 ;; *) WINDOWS=0 ;; esac
+alive() {
+  if [ "$WINDOWS" = 1 ]; then tasklist //FI "PID eq $1" //NH 2>/dev/null | grep -q " $1 "; else kill -0 "$1" 2>/dev/null; fi
+}
+if [ -f "$PIDFILE" ] && alive "$(cat "$PIDFILE")"; then echo "already running"; exit 0; fi
+if [ "$WINDOWS" = 1 ]; then DLL=SPT.Server.dll; else DLL=SPT.Server.Linux.dll; [ -f "$DLL" ] || DLL=SPT.Server.dll; fi
 : > "$LOG"
-setsid nohup "$DOTNET" "$DLL" >> "$LOG" 2>&1 < /dev/null &
-echo $! > "$PIDFILE"
+if [ "$WINDOWS" = 1 ]; then
+  "$DOTNET" "$DLL" >> "$LOG" 2>&1 < /dev/null &
+  cat "/proc/$!/winpid" > "$PIDFILE"
+else
+  setsid nohup "$DOTNET" "$DLL" >> "$LOG" 2>&1 < /dev/null &
+  echo $! > "$PIDFILE"
+fi
 # SPT 4.1 writes its console to user/logs/spt/spt<date>.log rather than stdout: follow it into $LOG too.
 mkdir -p user/logs/spt
 TODAY="user/logs/spt/spt$(date +%Y%m%d).log"
@@ -25,6 +35,6 @@ for i in $(seq 1 90); do
   if grep -q "Server has started\|happy playing\|Started webserver" "$LOG"; then
     sleep 2; echo "started"; exit 0
   fi
-  if ! kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then echo "died"; exit 1; fi
+  if ! alive "$(cat "$PIDFILE")"; then echo "died"; exit 1; fi
 done
 echo "timeout"; exit 1

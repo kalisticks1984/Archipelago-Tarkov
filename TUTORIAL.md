@@ -3,7 +3,7 @@
 This guide takes you from a working SPT install to playing Tarkov in an Archipelago multiworld.
 Setting up the mod takes about 10 minutes.
 
-> **Status: early release (v2.0.0, for SPT 4.1.6).** Everything is tested against a real SPT 4.1.6 server and a real Archipelago
+> **Status: early release (v2.2.0, for SPT 4.1.6).** Everything is tested against a real SPT 4.1.6 server and a real Archipelago
 > server, with a script standing in for the game client. It hasn't had a full in-game playthrough yet, so expect rough
 > edges. Please report problems (see [Reporting problems](#reporting-problems)).
 
@@ -112,22 +112,40 @@ Open `Escape.from.Tarkov.yaml` in a text editor (Notepad works).
 
 | Option | Default | What it does |
 |---|---|---|
-| `goal` | `quest_count` | What finishes your game: `quest_count` (complete a number of check quests), `collector` (Fence's *Collector*, the Kappa quest), or `all_extracts` (extract once from every map) |
+| `quest_mode` | `archipelago_contracts` | `archipelago_contracts`: Tarkov's quests are replaced by a line of contracts from the Archipelago trader, ending with the Kappa contract (your goal). `vanilla`: Tarkov's own quests are checks. See [Archipelago contracts](#archipelago-contracts) |
+| `contract_count` | `125` | How many contracts come before the Kappa contract (40–200). The vanilla road to Kappa is 254 quests |
+| `goal` | `quest_count` | With `quest_mode: vanilla`, what finishes your game: `quest_count` (complete a number of check quests), `collector` (Fence's *Collector*, the Kappa quest), `all_extracts` (extract once from every map), or `bosses` (kill every boss once). Ignored with contracts: the goal is the Kappa contract |
 | `goal_quest_count` | `60` | How many check quests the `quest_count` goal needs (5–372) |
 | `starting_map` | `ground_zero` | The map you start with. Every other map is an item. The Lab can't be the starting map |
 | `starting_traders` | `prapor_and_therapist` | The traders you start with: Prapor + Therapist, two random ones, or one random one |
-| `quest_traders` | all seven | Traders whose quests are checks. Quests from the others still work, they just don't send anything |
-| `max_quest_level` | `79` | Quests that need a higher player level than this aren't checks. Lower = shorter game |
+| `quest_traders` | all seven | Vanilla quests only: traders whose quests are checks. Quests from the others still work, they just don't send anything |
+| `max_quest_level` | `79` | Vanilla quests only: quests that need a higher player level than this aren't checks. Lower = shorter game |
 | `hideout_checks` | `true` | Each hideout area level you build is a check |
+| `hideout_levels` | `items` | With hideout checks: `items` (building a level sends its check; the level starts working once its station's *Progressive* item arrives, see [The hideout](#the-hideout)) or `built` (building gives the level, as normal) |
+| `hideout_supplies` | `10` | How many *Hideout Supplies* items are in the pool (0–40): each sends the found-in-raid materials for one upgrade you can build next |
 | `extracts_per_map` | `1` | How many successful PMC extractions on each map are checks (0–5) |
+| `kill_milestones` | `short` | Checks for total kills, in PMC and Scav raids on unlocked maps: `off`, `short` (5–50 Scavs, 1–25 PMCs) or `long` (5–300 Scavs, 1–100 PMCs) |
+| `boss_checks` | `true` | The first kill of each boss is a check (13: the Goons count as three) |
+| `lootsanity` | none | Item categories whose item types become checks: any of `barter`, `keys`, `medication`, `provisions`, `ammo`, `weapons`, `weapon_mods`, `gear`, `info`, `maps`, `special_equipment`, `money`. See [Lootsanity](#lootsanity) |
+| `lootsanity_progression` | `false` | Let loot checks hold progression items. Off by default: some items are very rare spawns |
+| `craftsanity` | `false` | The first craft of each hideout recipe (about 180) is a check. That first craft gives no item; later crafts are normal |
+| `shop_randomizer` | `vanilla` | Randomize the seven main traders' stock: `vanilla`, `same_category` (ammo stays ammo, meds stay meds) or `anything`. Not checks. See [Randomized shops](#randomized-shops) |
+| `shop_reshuffle` | `per_seed` | When randomized shops change: `per_seed` (fixed for the whole game) or `every_restock` |
+| `shop_stock` | `40` | With randomized shops: the percentage of each trader's offers in stock (10-100) |
 | `lock_flea_market` | `true` | The Flea Market is closed until you find *Flea Market Access* |
 | `level_pacing` | `normal` | How many maps the logic expects you to own before it asks for higher-level quests: `relaxed`, `normal` or `fast` |
 | `trap_percentage` | `10` | Percentage of filler items replaced by traps |
 | `starting_kit` | `off` | A random starting kit rolled from the seed (see [The random starting kit](#the-random-starting-kit)): `off`, `extra` (on top of your normal starting stash) or `replace` (instead of it) |
 | `starting_kit_quality` | `standard` | How good the kit is: `scrappy`, `standard` or `geared` |
+| `kit_grace_raids` | `5` | With `starting_kit: replace`: in this many of your first PMC raids, dying keeps your gear (0–20, 0 = off) |
+| `insurance` | `true` | Whether you can insure gear. The Archipelago trader is always an insurer, so the insurance screen works even when every other trader is locked. Off: insuring is refused |
+| `insurance_price` | `100` | Insurance price in percent of normal (0–500) |
+| `post_raid_healing` | `true` | The Archipelago trader heals you for roubles (the treatment screen after a raid, and its Services tab). Off: trader healing is refused |
+| `trader_barters` | `false` | Off: trades paid with items are removed (Archipelago trader, and every trader with vanilla quests); everything is bought with money. On: barters stay |
 | `death_link` | `false` | When your PMC dies in raid, everyone with DeathLink dies, and the other way round |
 
-Short games: `goal_quest_count: 20`, `max_quest_level: 15` and `extracts_per_map: 1` make a game of a few evenings.
+Short games: `contract_count: 40` is a game of a few evenings. With vanilla quests, `goal_quest_count: 20`,
+`max_quest_level: 15` and `extracts_per_map: 1` do the same.
 
 ---
 
@@ -180,15 +198,20 @@ That's it. The connection is remembered for this profile: every time the SPT ser
 **Locked things**
 - **Maps:** you only see the maps you own on the map selection screen. Transits to maps you don't own are switched
   off. A newly received map appears after your next raid or a game restart.
-- **Traders:** Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger are items. A trader you don't own is
+- **Traders:** Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger are items. With Archipelago
+  contracts (the default) every trader is locked and a trader item adds that trader's stock to the Archipelago trader
+  (see [Archipelago contracts](#archipelago-contracts)). With vanilla quests, a trader you don't own is
   locked, even if a quest reward would normally unlock them (Jaeger). Fence, Lightkeeper, the BTR driver and Ref work as
   usual (their quests aren't checks).
 - **Flea Market:** banned until you receive *Flea Market Access* (and then it opens at the usual level).
 
 **Checks**
-- **Quests:** turning in a quest from one of the main traders sends its check. Event, faction-only, edition-only and
+- **Contracts** (the default): turning in an Archipelago contract sends its check. See
+  [Archipelago contracts](#archipelago-contracts).
+- **Quests** (`quest_mode: vanilla`): turning in a quest from one of the main traders sends its check. Event, faction-only, edition-only and
   branching quests (where finishing one fails another) aren't checks, so picking a branch never costs you a check.
-- **Hideout:** each area level you build (if `hideout_checks` is on).
+- **Hideout:** each area level you build (if `hideout_checks` is on). With `hideout_levels: items` (the default)
+  the level itself comes from the multiworld; see [The hideout](#the-hideout).
 - **Extractions:** surviving a raid as a PMC on a map you own. Scav raids and maps you don't own don't count. A
   transit to another map isn't an extraction.
 
@@ -209,9 +232,122 @@ With the client plugin, these messages also pop up during raids.
 **DeathLink** (if on) — dying in raid as a PMC sends a death to the multiworld. A death from someone else kills you
 only while you're in raid, and only with the client plugin; out of raid it's just announced.
 
-**The Collector goal** — accept Therapist's *Colleagues - Part 3* **before** turning in Jaeger's *The Huntsman Path -
+**The Collector goal** (vanilla quests) — accept Therapist's *Colleagues - Part 3* **before** turning in Jaeger's *The Huntsman Path -
 Sadist*. *Colleagues - Part 3* is only offered while *Sadist* is in progress, and *Collector* needs it. The contact
 reminds you when it matters.
+
+### Archipelago contracts
+
+With `quest_mode: archipelago_contracts` (the default), Tarkov's own quests are switched off and the **Archipelago**
+trader offers a line of contracts written for your seed. After linking, restart the game once: the trader and the
+contracts' objective text appear then.
+
+- **The Archipelago trader is the only trader.** Every other trader (the seven main ones, Fence, Lightkeeper, Ref,
+  the BTR driver) stays locked. Instead, the Archipelago trader sells:
+  - the stock of every main trader whose item you've received (*Prapor*, *Skier*...), at the loyalty level you'd have
+    with that trader. Loyalty comes from your player level and that trader's standing (from contracts); sales don't
+    count, since you can't sell to them. The hideout uses the same loyalty levels. With `shop_randomizer`, that stock
+    is randomized as usual;
+  - its own catalog, drawn from every weapon, armor, helmet, med, round, key and magazine in the game and rolled
+    again at every **restock (every 15 minutes)**. Items come in four tiers (weapons, meds and keys by price, armor
+    by the class of its plates, ammo by penetration). Tier 1 is open from the start, tier 2 once a quarter of the
+    contracts is done, tier 3 at half and tier 4 at three quarters; the newest open tier comes up most often.
+    Every restock has at least: 3 weapons (6 in all, fully built), 3 armors and a helmet (with their plates), a med
+    for heavy bleeds, one for light bleeds, one for fractures and a painkiller (plus 4 random meds), 5 random keys,
+    and a magazine and ammo for every gun on sale or that you own. Catalog items cost their handbook price plus
+    25%, with small purchase limits that reset at the restock.
+
+  It buys anything the main traders would buy. There's no insurance, repair or post-raid healing (no Therapist or
+  Prapor to do it).
+- **What they ask:** kill Scavs, PMCs or both (on a map or anywhere), kill a boss, survive and extract from a map, or
+  hand over found-in-raid items. Early contracts use one objective and your starting map; later ones use two or
+  three, bigger counts, bosses and pricier items.
+- **Order:** three contracts are open at the start. Each later contract follows one (sometimes two) of the few
+  before it, so several are usually open at once. The seed orders them so the maps and traders you can receive make
+  every one possible when it opens.
+- **Rewards:** experience, roubles and standing with a main trader (the trader named in the description). Over the
+  whole line every trader gets enough standing for loyalty level 4. Trader offers that Tarkov's quests would unlock
+  open up as you get through the line instead: an offer opens at the same share of contracts done as its quest's
+  place on the road to Kappa.
+- **The Kappa contract:** offered once every other contract is done. Hand over four valuables, found in raid, and
+  the Kappa container is yours. Finishing it is the goal.
+- **Length:** 125 contracts by default, about half the 254 quests vanilla Kappa takes. `contract_count` sets 40–200.
+- Each contract is a check (`Contract 1`, `Contract 2`, ..., `Contract - Kappa`). Hideout recipes that a vanilla
+  quest unlocks can't be crafted, so they aren't craftsanity checks.
+- The tracker lists the contracts you've taken under the maps their objectives are on.
+
+### Lootsanity
+
+With `lootsanity` set, every item type in the chosen categories is a check. In each raid, the first item of a type
+you haven't brought out yet spawns as an **Archipelago Item** instead: on the ground, in containers, or in a bot's rig,
+pockets or backpack. Its name says what it stands for, for example *Archipelago Item (Bottle of water (0.6L))*. Only
+one spawn per type per raid is swapped; the rest of that type is normal loot.
+
+- **Extract with it** to send the check. The Archipelago Item is then removed: you get whatever the check holds in the
+  multiworld, never the original item.
+- **If you die**, Archipelago Items in your secure container still count (like anything else there). The rest are lost,
+  and their checks stay available.
+- Once a type's check is sent, that type spawns normally from then on.
+- Bots never lose the ammo, magazines, meds or grenades they use themselves; those types only appear as Archipelago
+  Items in loose loot and containers.
+- With the optional client plugin, Archipelago Items show the Archipelago symbol. Without it they look like a pack of
+  bolts with a violet background.
+
+### The tracker
+
+With the client plugin, press **F8** (or open the **Tasks** screen) for the Archipelago tracker. For each map you have
+unlocked it lists what is left there: quests you have taken with objectives on that map, extractions, bosses that
+spawn there, and how many loot checks can spawn there. During a raid the current map comes first and lists where this
+raid's Archipelago Items are (in which container, on the ground, or carried by which bot). Below that: the next kill
+milestones and checks that work on any map. The key and the Tasks-screen behaviour can be changed in the BepInEx
+config (F12 with the configuration manager).
+
+### Craftsanity
+
+With `craftsanity: true`, the first time you collect each hideout recipe sends a check. That first craft gives no item
+(the ingredients are spent and the multiworld gets the check); every later craft of the same recipe works as normal.
+Tools used by the craft are given back as usual. Recipes unlocked by a quest are in logic once that quest is.
+
+### Randomized shops
+
+`shop_randomizer` changes what Prapor, Therapist, Skier, Peacekeeper, Mechanic, Ragman and Jaeger sell. Nothing you
+buy is a check.
+
+- `same_category`: each offer becomes another item from the same category (ammo stays ammo, meds stay meds).
+  `anything`: any item a trader sells, or a loose item such as a key, a barter item or meds.
+- Each offer becomes an item worth about the same as the one it replaces (half to double), so loyalty level 1 stays
+  modest and good gear stays at higher levels. Only `shop_stock` percent of the offers are in stock.
+- Each offer keeps its loyalty level and any quest that unlocks it. Prices follow the item's value, in the trader's
+  currency.
+- Purchase limits are random: cheap items allow 20-100 per restock, the most valuable 1-2. Higher loyalty levels raise
+  them by 25% per level; loose ammo rounds get ten times more.
+- `shop_reshuffle: per_seed` keeps the same stock all game; `every_restock` rolls new stock at each trader restock.
+- The Lab keycard and Peacekeeper's and Skier's currency exchange never change. With randomized shops the logic
+  expects the Flea Market for the later Gunsmith quests' weapon parts.
+
+### The hideout
+
+With `hideout_levels: items` (the default), each station has a *Progressive* item, one per level: *Progressive
+Workbench*, *Progressive Generator* and so on.
+- **Building** a level (paying for it and waiting for it to finish) sends that level's check right away.
+- The level **starts working** (its crafts, bonuses and stash size) once you have as many of the station's
+  Progressive items as the level needs. Until then the station stays at the level below. The Archipelago contact says
+  which level is waiting and for how many items.
+- When the item arrives, the level you already built is applied for you; the hideout shows it after a game
+  restart. You never pay for a level twice: building it again is refused.
+- A Progressive item that arrives before you build the level just lets the level work as soon as you build it.
+
+*Hideout Supplies* (`hideout_supplies`) send the materials for one upgrade you can build next, found in raid, in your
+System messages: the cheapest one whose other stations you already have.
+
+With `hideout_levels: built`, building a level gives you the level and sends its check, as in the normal game.
+
+### Insurance and healing
+
+The Archipelago trader insures gear (on Therapist's terms: returns in 10–20 hours, 95% of the time) and heals you
+after a raid and from its Services tab, in both quest modes. With vanilla quests it sells nothing; Prapor and
+Therapist still insure and heal once you have them. `insurance` and `post_raid_healing` switch these off, and
+`insurance_price` scales every insurance price.
 
 ### The random starting kit
 
@@ -235,6 +371,8 @@ everyone's is different:
   gear up.
   This only happens on a brand-new profile: if the profile was already played, or you start a raid before
   restarting, your stash is kept and the kit comes on top instead.
+- **Grace raids (`kit_grace_raids`, 5 by default):** with `replace`, dying in one of your first PMC raids keeps your
+  gear (everything you carry, without found-in-raid status). The Archipelago contact counts them down.
 
 ---
 
@@ -279,7 +417,7 @@ Your Archipelago progress lives in `SPT_Runtime\user\mods\ArchipelagoTarkov\prof
 
 **The SPT console doesn't show "Archipelago for Tarkov loaded"**
 Check that `ArchipelagoTarkov.dll` is at `SPT_Runtime\user\mods\ArchipelagoTarkov\ArchipelagoTarkov.dll`. The console
-lists every mod it loads (`Mod: Archipelago for Tarkov version: 2.0.0 ... loaded`); on SPT older than 4.1.6, or 4.2
+lists every mod it loads (`Mod: Archipelago for Tarkov version: 2.2.0 ... loaded`); on SPT older than 4.1.6, or 4.2
 and newer, it shows an error about the mod's SPT version instead (for SPT 4.0.13, use release 1.1.1). Look for red
 lines mentioning Archipelago.
 

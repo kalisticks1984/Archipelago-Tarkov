@@ -13,7 +13,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>ArchipelagoTarkov.Client</AssemblyName>
     <RootNamespace>ArchipelagoTarkov.Client</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -37,10 +37,19 @@
 
   <ItemGroup>
     <Reference Include="$(BepInExCore)\BepInEx.dll" Private="false" />
+    <Reference Include="$(BepInExCore)\0Harmony.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="$(ManagedDir)\UnityEngine.TextRenderingModule.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
     <Reference Include="$(ManagedDir)\UnityEngine.JSONSerializeModule.dll" Private="false" />
     <Reference Include="$(SptPlugins)\spt-common.dll" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\archipelago.png" LogicalName="ArchipelagoTarkov.Client.Resources.archipelago.png" />
   </ItemGroup>
 
   <Target Name="CheckSptPath" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(BepInExCore)\BepInEx.dll')">

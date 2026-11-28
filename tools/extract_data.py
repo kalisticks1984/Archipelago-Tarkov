@@ -29,6 +29,77 @@ LOCATION_BASE = 76_400_000
 QUEST_OFFSET = 0
 HIDEOUT_OFFSET = 10_000
 EXTRACT_OFFSET = 20_000
+KILL_OFFSET = 30_000
+BOSS_OFFSET = 40_000
+
+# Cumulative kill totals that are checks. "level" is the player level the logic expects before the total is
+# reasonable (the APWorld turns it into a number of unlocked maps, like quest levels). Never reorder or remove
+# entries: the position in each list is part of the location id. Add new tiers at the end.
+KILL_MILESTONES = OrderedDict([
+    ("scav", ("Scavs", [5, 10, 25, 50, 75, 100, 150, 200, 250, 300])),
+    ("pmc", ("PMCs", [1, 5, 10, 25, 50, 75, 100])),
+])
+KILL_MILESTONE_LEVELS = {"scav": 5, "pmc": 2}  # level = total // divisor, capped at 60
+KILL_SLOTS_PER_TARGET = 100  # id = KILL_OFFSET + target index * 100 + tier index
+
+# Boss role (the bot type in SPT's database) -> (key, display name). The maps each boss can spawn on are read
+# from the locations' BossLocationSpawn tables. Never reorder: the position is part of the location id.
+BOSSES = OrderedDict([
+    ("bossBully", ("reshala", "Reshala")),
+    ("bossKilla", ("killa", "Killa")),
+    ("bossKojaniy", ("shturman", "Shturman")),
+    ("bossGluhar", ("glukhar", "Glukhar")),
+    ("bossSanitar", ("sanitar", "Sanitar")),
+    ("bossTagilla", ("tagilla", "Tagilla")),
+    ("bossBoar", ("kaban", "Kaban")),
+    ("bossKolontay", ("kollontay", "Kollontay")),
+    ("bossZryachiy", ("zryachiy", "Zryachiy")),
+    ("bossPartisan", ("partisan", "Partisan")),
+    ("bossKnight", ("knight", "Knight")),
+    ("followerBigPipe", ("bigpipe", "Big Pipe")),
+    ("followerBirdEye", ("birdeye", "Birdeye")),
+])
+BOSS_LEVEL = 10
+
+# Lootsanity: each lootable item type is a check. Ids come from LOOT_OFFSET upwards; an existing table's ids are
+# kept on regeneration (new types are appended), so ids never move when SPT adds or removes items.
+LOOT_OFFSET = 100_000
+LOOT_MAX = 100_000
+# Handbook top-level category id -> lootsanity category key (the APWorld option uses these keys).
+LOOT_CATEGORIES = OrderedDict([
+    ("5b47574386f77428ca22b33e", "barter"),
+    ("5b47574386f77428ca22b342", "keys"),
+    ("5b47574386f77428ca22b344", "medication"),
+    ("5b47574386f77428ca22b340", "provisions"),
+    ("5b47574386f77428ca22b346", "ammo"),
+    ("5b5f78dc86f77409407a7f8e", "weapons"),
+    ("5b5f71a686f77447ed5636ab", "weapon_mods"),
+    ("5b47574386f77428ca22b33f", "gear"),
+    ("5b47574386f77428ca22b341", "info"),
+    ("5b47574386f77428ca22b343", "maps"),
+    ("5b47574386f77428ca22b345", "special_equipment"),
+    ("5b5f78b786f77447ed5636af", "money"),
+])
+# Bots carrying these spawn with them on every map but Labs.
+GENERIC_BOT_TYPES = {"assault", "bear", "usec", "pmcbear", "pmcusec"}
+BOT_LOOT_SLOTS = ("TacticalVest", "Pockets", "Backpack")
+# Items bots use themselves (reloading, healing, throwing): never swapped on a bot, only in loose loot and containers.
+BOT_USED_BASES = {
+    "5485a8684bdc2da71d8b4567",  # Ammo
+    "543be5cb4bdc2deb348b4568",  # AmmoBox
+    "5448bc234bdc2d3c308b4569",  # Magazine
+    "543be5664bdc2dd4348b4569",  # Meds (includes stimulants)
+    "543be6564bdc2df4348b4568",  # ThrowWeap
+}
+# Stand-in template ids start with this, so the client plugin can recognise them without a list.
+STAND_IN_PREFIX = "a9a9a9"
+
+# Craftsanity: each hideout recipe is a check. Ids from CRAFT_OFFSET, kept on regeneration like lootsanity's.
+CRAFT_OFFSET = 200_000
+# Archipelago contracts (quest_mode: archipelago_contracts): the seed writes the contracts, the names are fixed.
+CONTRACT_OFFSET = 300_000
+CONTRACT_MAX = 200
+CRAFT_MAX = 10_000
 
 # Map key -> (display name, location ids used in quest data / raid server ids, text hints)
 MAPS = OrderedDict([
@@ -110,6 +181,117 @@ def as_list(value):
     if isinstance(value, list):
         return value
     return [value]
+
+
+def extract_loot(db, items, locale, location_name_to_key, out_path):
+    """Lootsanity table: every item type that can be looted in a raid, its category, and where it spawns."""
+    import hashlib
+
+    handbook = load(os.path.join(db, "templates", "handbook.json"))
+    hb_cats = {c["Id"]: c for c in handbook["Categories"]}
+
+    def top_category(cat_id):
+        while hb_cats.get(cat_id, {}).get("ParentId"):
+            cat_id = hb_cats[cat_id]["ParentId"]
+        return cat_id
+
+    category_of = {}
+    price_of = {entry["Id"]: int(entry.get("Price") or 0) for entry in handbook["Items"]}
+    for entry in handbook["Items"]:
+        key = LOOT_CATEGORIES.get(top_category(entry["ParentId"]))
+        if key:
+            category_of[entry["Id"]] = key
+
+    def is_a(tpl, bases):
+        for _ in range(40):
+            if tpl in bases:
+                return True
+            tpl = items.get(tpl, {}).get("_parent")
+            if not tpl:
+                return False
+        return False
+
+    # Where each type can be found: loose loot and static containers per map; generic bots anywhere.
+    spawn_maps = {}
+    for folder in sorted(os.listdir(os.path.join(db, "locations"))):
+        map_key = location_name_to_key.get(folder.lower())
+        folder_path = os.path.join(db, "locations", folder)
+        if map_key is None or not os.path.isdir(folder_path):
+            continue
+        loose_path = os.path.join(folder_path, "looseLoot.json")
+        if os.path.exists(loose_path):
+            for sp in load(loose_path).get("spawnpoints", []):
+                for it in (sp.get("template") or {}).get("Items", []):
+                    spawn_maps.setdefault(it["_tpl"], set()).add(map_key)
+        static_path = os.path.join(folder_path, "staticLoot.json")
+        if os.path.exists(static_path):
+            for container in load(static_path).values():
+                for dist in container.get("itemDistribution", []):
+                    if (dist.get("relativeProbability") or 0) > 0:
+                        spawn_maps.setdefault(dist["tpl"], set()).add(map_key)
+    on_bots = set()
+    for bot_type in GENERIC_BOT_TYPES:
+        path = os.path.join(db, "bots", "types", f"{bot_type}.json")
+        if os.path.exists(path):
+            slots = (load(path).get("inventory") or {}).get("items") or {}
+            for slot in BOT_LOOT_SLOTS:
+                on_bots.update((slots.get(slot) or {}).keys())
+
+    # Keep the ids (and names) of an existing table so they never move.
+    previous = {}
+    if os.path.exists(out_path):
+        try:
+            previous = {r["tpl"]: r for r in load(out_path).get("loot", [])}
+        except (OSError, ValueError):
+            previous = {}
+    used_ids = {r["location_id"] for r in previous.values()}
+    used_names = {r["name"] for r in previous.values()}
+    next_id = max(used_ids, default=LOCATION_BASE + LOOT_OFFSET - 1) + 1
+
+    records = []
+    for tpl in sorted(set(spawn_maps) | on_bots):
+        item = items.get(tpl)
+        category = category_of.get(tpl)
+        if item is None or category is None or item.get("_type") != "Item":
+            continue
+        if (item.get("_props") or {}).get("QuestItem"):
+            continue
+        bot_safe = not is_a(tpl, BOT_USED_BASES)
+        # Prefer real spawn places: bot loot tables can roll almost anything at tiny odds. Only types found on
+        # nothing but bots count as "any map".
+        maps = [m for m in MAPS if m in spawn_maps.get(tpl, ())]
+        if not maps and not (tpl in on_bots and bot_safe):
+            continue  # only on bots, and bots never give it up (they use it)
+        old = previous.get(tpl)
+        if old:
+            name, location_id = old["name"], old["location_id"]
+        else:
+            display = locale.get(f"{tpl} Name") or item.get("_name") or tpl
+            name = f"Loot - {display}"
+            if name in used_names:
+                name = f"Loot - {display} ({locale.get(f'{tpl} ShortName') or tpl[-6:]})"
+            n = 2
+            base_name = name
+            while name in used_names:
+                name = f"{base_name} {n}"
+                n += 1
+            location_id = next_id
+            next_id += 1
+        used_names.add(name)
+        if location_id >= LOCATION_BASE + LOOT_OFFSET + LOOT_MAX:
+            raise SystemExit("lootsanity location id range is full")
+        records.append({
+            "tpl": tpl,
+            "name": name,
+            "category": category,
+            "maps": maps,  # empty: found on bots everywhere
+            "bot_safe": bot_safe,
+            "price": price_of.get(tpl, 0),
+            "stand_in": STAND_IN_PREFIX + hashlib.sha1(f"archipelago-loot:{tpl}".encode()).hexdigest()[:18],
+            "location_id": location_id,
+        })
+    records.sort(key=lambda r: r["location_id"])
+    return records
 
 
 def main(spt_data_dir: str, out_path: str) -> None:
@@ -515,6 +697,130 @@ def main(spt_data_dir: str, out_path: str) -> None:
             e_index += 1
 
     # ----------------------------------------------------------------------------------
+    # Kill milestones (cumulative totals across PMC and Scav raids)
+    # ----------------------------------------------------------------------------------
+    kill_records = []
+    for t_index, (target, (display, totals)) in enumerate(KILL_MILESTONES.items()):
+        for tier, total in enumerate(totals):
+            kill_records.append({
+                "target": target,
+                "count": total,
+                "name": f"Kills - {total} {display}",
+                "level": min(60, total // KILL_MILESTONE_LEVELS[target]),
+                "location_id": LOCATION_BASE + KILL_OFFSET + t_index * KILL_SLOTS_PER_TARGET + tier,
+            })
+
+    # ----------------------------------------------------------------------------------
+    # Bosses (first kill of each). Spawn maps come from each location's BossLocationSpawn.
+    # ----------------------------------------------------------------------------------
+    boss_maps = {role: set() for role in BOSSES}
+    for folder in os.listdir(os.path.join(db, "locations")):
+        base_path = os.path.join(db, "locations", folder, "base.json")
+        map_key = location_name_to_key.get(folder.lower())
+        if map_key is None or not os.path.exists(base_path):
+            continue
+        for spawn in load(base_path).get("BossLocationSpawn", []):
+            if (spawn.get("BossChance") or 0) <= 0:
+                continue
+            roles = [spawn.get("BossName")] + [s.get("BossEscortType") for s in spawn.get("Supports") or []]
+            for role in roles:
+                if role in boss_maps:
+                    boss_maps[role].add(map_key)
+
+    boss_records = []
+    for b_index, (role, (key, display)) in enumerate(BOSSES.items()):
+        maps = [m for m in MAPS if m in boss_maps[role]]
+        if not maps:
+            print(f"   ! boss {display} ({role}) spawns on no playable map; left out")
+            continue
+        boss_records.append({
+            "key": key,
+            "role": role,
+            "name": f"Boss - {display}",
+            "maps": maps,
+            "level": BOSS_LEVEL,
+            "location_id": LOCATION_BASE + BOSS_OFFSET + b_index,
+        })
+
+    loot_records = extract_loot(db, items, locale, location_name_to_key, out_path)
+
+    # ----------------------------------------------------------------------------------
+    # Crafts (first completion of each hideout recipe)
+    # ----------------------------------------------------------------------------------
+    present_levels = {(h["area"], h["level"]) for h in hideout_records}
+    quest_ok = {q["id"] for q in quest_records if q["possible"]}
+    previous_crafts = {}
+    if os.path.exists(out_path):
+        try:
+            previous_crafts = {r["recipe"]: r for r in load(out_path).get("crafts", [])}
+        except (OSError, ValueError):
+            previous_crafts = {}
+    used_craft_names = {r["name"] for r in previous_crafts.values()}
+    next_craft_id = max((r["location_id"] for r in previous_crafts.values()),
+                        default=LOCATION_BASE + CRAFT_OFFSET - 1) + 1
+    # Contract n is "Contract n"; the last contract of every seed (the Kappa one) has its own name.
+    contract_records = [{"index": 0, "name": "Contract - Kappa", "location_id": LOCATION_BASE + CONTRACT_OFFSET}]
+    contract_records += [{"index": n, "name": f"Contract {n}", "location_id": LOCATION_BASE + CONTRACT_OFFSET + n}
+                         for n in range(1, CONTRACT_MAX + 1)]
+    craft_records = []
+    craft_skipped = {}
+    for recipe in sorted(load(os.path.join(db, "hideout", "production.json"))["recipes"], key=lambda r: r["_id"]):
+        reqs = recipe.get("requirements", [])
+        area_req = next((r for r in reqs if r["type"] == "Area"), None)
+        quest_reqs = [r for r in reqs if r["type"] == "QuestComplete"]
+        quest_req = next((r["questId"] for r in quest_reqs if r.get("questId")), None)
+        reason = None
+        if any(not r.get("questId") for r in quest_reqs):
+            reason = "unnamed quest"  # unlocked by a quest the data doesn't name: logic can't place it
+        elif recipe.get("isCodeProduction"):
+            reason = "code"
+        elif any(r["type"] == "GameVersion" for r in reqs):
+            reason = "edition"
+        elif area_req is None:
+            reason = "no station"
+        elif recipe["areaType"] in EXCLUDED_HIDEOUT_AREAS:
+            reason = "excluded station"
+        elif ((area_req["areaType"], area_req["requiredLevel"]) not in present_levels
+              and area_req["requiredLevel"] > standard_levels.get(area_req["areaType"], 0)):
+            reason = "station level unavailable"
+        elif quest_req and quest_req not in quest_ok:
+            reason = "quest not completable"
+        elif recipe.get("locked") and not quest_req:
+            reason = "locked"
+        elif recipe["endProduct"] not in items:
+            reason = "unknown product"
+        if reason:
+            craft_skipped[reason] = craft_skipped.get(reason, 0) + 1
+            continue
+        old = previous_crafts.get(recipe["_id"])
+        if old:
+            name, location_id = old["name"], old["location_id"]
+        else:
+            product = locale.get(f"{recipe['endProduct']} Name") or items[recipe["endProduct"]].get("_name")
+            station = locale.get(f"hideout_area_{recipe['areaType']}_name") or f"Area {recipe['areaType']}"
+            name = f"Craft - {product} ({station})"
+            n, base_name = 2, name
+            while name in used_craft_names:
+                name = f"{base_name} #{n}"
+                n += 1
+            location_id = next_craft_id
+            next_craft_id += 1
+        used_craft_names.add(name)
+        if location_id >= LOCATION_BASE + CRAFT_OFFSET + CRAFT_MAX:
+            raise SystemExit("craftsanity location id range is full")
+        craft_records.append({
+            "recipe": recipe["_id"],
+            "name": name,
+            "area": area_req["areaType"],
+            "level": area_req["requiredLevel"],
+            "quest": quest_req,
+            "product": recipe["endProduct"],
+            "continuous": bool(recipe.get("continuous")),
+            "location_id": location_id,
+        })
+    craft_records.sort(key=lambda r: r["location_id"])
+
+    # ----------------------------------------------------------------------------------
     # Items
     # ----------------------------------------------------------------------------------
     item_records = []
@@ -555,6 +861,17 @@ def main(spt_data_dir: str, out_path: str) -> None:
     add_item("Fence Grudge", "trap", "trap", trap="fence_rep", amount=-0.3)
     add_item("Exhaustion", "trap", "trap", trap="exhaustion")
     add_item("Scav Cooldown", "trap", "trap", trap="scav_cooldown", seconds=1200)
+    # Hideout (option hideout_levels: items): one progressive item per station, one per level with a check.
+    # Building a level sends its check; the level itself is active once enough of these have arrived.
+    station_levels = OrderedDict()
+    for h in hideout_records:
+        name = h["name"][len("Hideout - "):h["name"].rindex(" Level ")]
+        station_levels.setdefault(h["area"], [name, 0])[1] += 1
+    for atype, (name, count) in station_levels.items():
+        add_item(f"Progressive {name}", "station", "progression", area=atype, count=count,
+                 base_level=min(h["level"] for h in hideout_records if h["area"] == atype) - 1)
+    # The materials for the next station upgrade, sent as found-in-raid items.
+    add_item("Hideout Supplies", "supplies", "useful")
 
     # A fingerprint of every item and location id/name. The APWorld sends it in slot data and the
     # mod refuses to play a seed made from a different table, instead of silently mismatching ids.
@@ -563,6 +880,11 @@ def main(spt_data_dir: str, out_path: str) -> None:
     lines += [f"loc:{q['location_id']}:{q['location_name']}" for q in quest_records if q["check"]]
     lines += [f"loc:{h['location_id']}:{h['name']}" for h in hideout_records]
     lines += [f"loc:{e['location_id']}:{e['name']}" for e in extract_records]
+    lines += [f"loc:{k['location_id']}:{k['name']}" for k in kill_records]
+    lines += [f"loc:{b['location_id']}:{b['name']}" for b in boss_records]
+    lines += [f"loc:{r['location_id']}:{r['name']}:{r['tpl']}:{r['stand_in']}" for r in loot_records]
+    lines += [f"loc:{r['location_id']}:{r['name']}:{r['recipe']}" for r in craft_records]
+    lines += [f"loc:{c['location_id']}:{c['name']}" for c in contract_records]
     data_hash = hashlib.sha1("\n".join(sorted(lines)).encode("utf-8")).hexdigest()
 
     data = OrderedDict()
@@ -585,6 +907,11 @@ def main(spt_data_dir: str, out_path: str) -> None:
     data["quests"] = quest_records
     data["hideout"] = hideout_records
     data["extracts"] = extract_records
+    data["kills"] = kill_records
+    data["bosses"] = boss_records
+    data["loot"] = loot_records
+    data["crafts"] = craft_records
+    data["contracts"] = contract_records
     data["items"] = item_records
 
     with open(out_path, "w", encoding="utf-8") as f:
@@ -594,7 +921,16 @@ def main(spt_data_dir: str, out_path: str) -> None:
     checks = [r for r in quest_records if r["check"]]
     print(f"quests: {len(quest_records)} total, {len(checks)} checks, "
           f"{sum(1 for r in quest_records if not r['possible'])} impossible")
-    print(f"hideout checks: {len(hideout_records)}; extract slots: {len(extract_records)}; items: {len(item_records)}")
+    print(f"hideout checks: {len(hideout_records)}; extract slots: {len(extract_records)}; "
+          f"kill milestones: {len(kill_records)}; bosses: {len(boss_records)}; items: {len(item_records)}")
+    for b in boss_records:
+        print(f"   boss {b['name']}: {', '.join(b['maps'])}")
+    from collections import Counter
+    by_cat = Counter(r["category"] for r in loot_records)
+    print(f"craftsanity: {len(craft_records)} recipes; left out: "
+          + ", ".join(f"{k} {v}" for k, v in sorted(craft_skipped.items())))
+    print(f"lootsanity: {len(loot_records)} item types ({sum(1 for r in loot_records if not r['maps'])} on bots "
+          f"everywhere): " + ", ".join(f"{k} {v}" for k, v in sorted(by_cat.items())))
     print(f"objectives with unknown map (treated as needing every map): {len(unknown_objectives)}")
     for name, text in unknown_objectives:
         print(f"   ? {name}: {text}")

@@ -6,6 +6,7 @@ using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Eft.Profile;
 using SPTarkov.Server.Core.Models.Enums;
+using SPTarkov.Server.Core.Models.Enums.Hideout;
 using SPTarkov.Server.Core.Models.Spt.Config;
 using SPTarkov.Server.Core.Models.Spt.Dialog;
 using SPTarkov.Server.Core.Servers;
@@ -21,7 +22,13 @@ public class GameBridge(
     MailSendService mailSendService,
     TraderHelper traderHelper,
     LootPools lootPools,
-    TraderConfig traderConfig
+    TraderConfig traderConfig,
+    SPTarkov.Server.Core.Models.Spt.Tables.TradersTable traderTable,
+    SPTarkov.Server.Core.Models.Spt.Tables.HideoutTable hideoutTable,
+    SPTarkov.Server.Core.Controllers.HideoutController hideoutController,
+    SPTarkov.Server.Core.Routers.EventOutputHolder eventOutputHolder,
+    SPTarkov.Server.Core.Helpers.Profile.HandbookHelper handbookHelper,
+    ItemHelper itemHelper
 )
 {
     /// <summary>Flea bans the mod adds carry this exact timestamp (1 Jan 2100) so they can be told apart from real bans.</summary>
@@ -163,7 +170,8 @@ public class GameBridge(
 
     // ------------------------------------------------------------------ locks
     /// <summary>Make the profile's trader and flea state match the items received so far. Returns true if anything changed.</summary>
-    public bool EnforceLocks(string profileId, TarkovData data, ISet<string> unlockedTraders, bool fleaLocked)
+    public bool EnforceLocks(string profileId, TarkovData data, ISet<string> unlockedTraders, bool fleaLocked,
+        bool contractsMode = false)
     {
         var pmc = Pmc(profileId);
         if (pmc?.TradersInfo is null || pmc.Info is null)
@@ -172,6 +180,43 @@ public class GameBridge(
         }
 
         var changed = false;
+        if (contractsMode)
+        {
+            // Only the Archipelago trader is open. Main traders keep the loyalty level their standing and the player
+            // level give (sales can't count: nothing can be sold to them), for the hideout and the Archipelago stock.
+            var archipelago = new MongoId(Contracts.TraderId);
+            foreach (var (traderId, info) in pmc.TradersInfo)
+            {
+                var open = traderId == archipelago;
+                if ((info.Unlocked ?? false) != open)
+                {
+                    info.Unlocked = open;
+                    changed = true;
+                }
+
+                if (data.TradersById.ContainsKey(traderId.ToString()) && traderTable.GetTrader(traderId)?.Base is { } traderBase)
+                {
+                    var level = MerchantStock.EffectiveLevel(traderBase, pmc);
+                    if (info.LoyaltyLevel != level)
+                    {
+                        info.LoyaltyLevel = level;
+                        changed = true;
+                    }
+
+                    // The game client works the level out itself (SPT doesn't send it), sales included: record the
+                    // sales that level needs, so the client agrees (hideout requirements, trader screens).
+                    var neededSales = traderBase.LoyaltyLevels?.ElementAtOrDefault(level - 1)?.MinSalesSum ?? 0;
+                    if ((info.SalesSum ?? 0) < neededSales)
+                    {
+                        info.SalesSum = neededSales;
+                        changed = true;
+                    }
+                }
+            }
+
+            return EnforceFleaBan(pmc, fleaLocked) || changed;
+        }
+
         foreach (var trader in data.Traders)
         {
             if (!pmc.TradersInfo.TryGetValue(new MongoId(trader.Id), out var info))
@@ -187,22 +232,28 @@ public class GameBridge(
             }
         }
 
-        var bans = pmc.Info.Bans?.ToList() ?? [];
+        return EnforceFleaBan(pmc, fleaLocked) || changed;
+    }
+
+    private static bool EnforceFleaBan(PmcData pmc, bool fleaLocked)
+    {
+        var bans = pmc.Info!.Bans?.ToList() ?? [];
         var ourBan = bans.FirstOrDefault(b => b.BanType == BanType.RagFair && b.DateTime == FleaBanTimestamp);
         if (fleaLocked && ourBan is null)
         {
             bans.Add(new Ban { BanType = BanType.RagFair, DateTime = FleaBanTimestamp });
             pmc.Info.Bans = bans;
-            changed = true;
+            return true;
         }
-        else if (!fleaLocked && ourBan is not null)
+
+        if (!fleaLocked && ourBan is not null)
         {
             bans.Remove(ourBan);
             pmc.Info.Bans = bans;
-            changed = true;
+            return true;
         }
 
-        return changed;
+        return false;
     }
 
     /// <summary>Remove everything the mod changed on the profile (used by the reset command).</summary>
@@ -225,10 +276,44 @@ public class GameBridge(
             info.Unlocked = trader.Key != "jaeger" || (data.JaegerUnlockQuestId != null && QuestCompleted(profileId, data.JaegerUnlockQuestId));
         }
 
+        // Archipelago contracts locked the other traders too (Fence, Ref, the BTR driver...): back to their default.
+        foreach (var (traderId, info) in pmc.TradersInfo)
+        {
+            if (!data.TradersById.ContainsKey(traderId.ToString()) && traderId != new MongoId(Contracts.TraderId)
+                && traderTable.GetTrader(traderId)?.Base is { UnlockedByDefault: true })
+            {
+                info.Unlocked = true;
+            }
+        }
+
         pmc.Info.Bans = (pmc.Info.Bans ?? []).Where(b => !(b.BanType == BanType.RagFair && b.DateTime == FleaBanTimestamp)).ToList();
     }
 
     // ------------------------------------------------------------------ checks
+    /// <summary>
+    /// A copy of a profile list. The game's own requests change the profile on other threads (quests, hideout), so
+    /// the mod reads copies; a copy taken mid-change is retried, then given up on until the next update.
+    /// </summary>
+    internal static List<T> Snapshot<T>(List<T>? list)
+    {
+        if (list is null)
+        {
+            return [];
+        }
+
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return list.ToList();
+            }
+            catch (Exception) when (attempt < 3)
+            {
+                Thread.Sleep(5);
+            }
+        }
+    }
+
     public IEnumerable<long> DetectChecks(string profileId, TarkovData data, ProfileState state)
     {
         var pmc = Pmc(profileId);
@@ -239,18 +324,30 @@ public class GameBridge(
 
         if (pmc.Quests is not null)
         {
-            foreach (var quest in pmc.Quests)
+            foreach (var quest in Snapshot(pmc.Quests))
             {
                 if (quest.Status == QuestStatusEnum.Success && data.QuestLocations.TryGetValue(quest.QId.ToString(), out var id))
                 {
                     yield return id;
                 }
             }
+
+            if (Contracts.Instance?.For(profileId) is { } contracts)
+            {
+                foreach (var quest in Snapshot(pmc.Quests))
+                {
+                    if (quest.Status == QuestStatusEnum.Success && contracts.Indexes.TryGetValue(quest.QId, out var index)
+                        && data.ContractLocations.TryGetValue(index, out var contractLocation))
+                    {
+                        yield return contractLocation;
+                    }
+                }
+            }
         }
 
         if (pmc.Hideout?.Areas is not null)
         {
-            foreach (var area in pmc.Hideout.Areas)
+            foreach (var area in Snapshot(pmc.Hideout.Areas))
             {
                 var built = area.Level ?? 0;
                 for (var level = 1; level <= built; level++)
@@ -263,6 +360,18 @@ public class GameBridge(
             }
         }
 
+        // hideout_levels: items. Levels built but waiting for their station's items are checks too.
+        foreach (var (area, built) in state.HideoutBuilt.ToList())
+        {
+            for (var level = 1; level <= built; level++)
+            {
+                if (data.HideoutLocations.TryGetValue((area, level), out var id))
+                {
+                    yield return id;
+                }
+            }
+        }
+
         foreach (var (map, count) in state.ExtractCounts)
         {
             for (var n = 1; n <= count; n++)
@@ -271,6 +380,38 @@ public class GameBridge(
                 {
                     yield return id;
                 }
+            }
+        }
+
+        foreach (var kill in data.Kills)
+        {
+            if (state.KillCounts.GetValueOrDefault(kill.Target) >= kill.Count)
+            {
+                yield return kill.LocationId;
+            }
+        }
+
+        foreach (var boss in data.Bosses)
+        {
+            if (state.BossesKilled.Contains(boss.Key))
+            {
+                yield return boss.LocationId;
+            }
+        }
+
+        foreach (var tpl in state.LootFound)
+        {
+            if (data.LootByTpl.TryGetValue(tpl, out var loot))
+            {
+                yield return loot.LocationId;
+            }
+        }
+
+        foreach (var recipe in state.CraftsDone)
+        {
+            if (data.CraftsByRecipe.TryGetValue(recipe, out var craft))
+            {
+                yield return craft.LocationId;
             }
         }
     }
@@ -568,6 +709,141 @@ public class GameBridge(
     }
 
     /// <summary>Write the SPT profile to disk. Returns false if that failed.</summary>
+    /// <summary>
+    /// hideout_levels: items. Raise a station to <paramref name="target"/> (built before, items arrived since) the way
+    /// finishing its upgrade does, bonuses and stash size included. Returns how many levels were applied.
+    /// </summary>
+    public int ApplyHideoutLevels(string profileId, int areaType, int target)
+    {
+        var pmc = Pmc(profileId);
+        var area = pmc?.Hideout?.Areas?.FirstOrDefault(a => (int?)a.Type == areaType);
+        if (pmc is null || area is null)
+        {
+            return 0;
+        }
+
+        var applied = 0;
+        var sessionId = new MongoId(profileId);
+        while ((area.Level ?? 0) < target && applied < 10)
+        {
+            var before = area.Level ?? 0;
+            Patches.UpgradeCompletePatch.Applying = true;
+            try
+            {
+                hideoutController.UpgradeComplete(pmc, new SPTarkov.Server.Core.Models.Eft.Hideout.HideoutUpgradeCompleteRequestData
+                {
+                    Action = "HideoutUpgradeComplete",
+                    AreaType = (HideoutAreas)areaType,
+                }, sessionId, eventOutputHolder.GetOutput(sessionId));
+            }
+            finally
+            {
+                Patches.UpgradeCompletePatch.Applying = false;
+            }
+
+            if ((area.Level ?? 0) <= before)
+            {
+                logger.Warning($"[Archipelago] could not apply hideout area {areaType} level {before + 1}.");
+                break;
+            }
+
+            applied++;
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Hideout Supplies: the materials (found in raid) for the cheapest upgrade the player can build next, preferring
+    /// one whose other stations are already there. <paramref name="upgrade"/> is "area:level", or null if none is left.
+    /// </summary>
+    public List<Item> CreateHideoutSupplies(PmcData pmc, ProfileState state, bool stationItems, out string? upgrade,
+        out string description)
+    {
+        upgrade = null;
+        description = "";
+        var levels = new Dictionary<int, int>();
+        foreach (var a in pmc.Hideout?.Areas ?? [])
+        {
+            if (a.Type is { } t)
+            {
+                levels[(int)t] = a.Level ?? 0;
+            }
+        }
+
+        SupplyPick? best = null;
+        foreach (var area in hideoutTable.Areas)
+        {
+            if (area.Type is null || area.Stages is null || area.IsEnabled == false)
+            {
+                continue;
+            }
+
+            var type = (int)area.Type.Value;
+            if (!levels.TryGetValue(type, out var current))
+            {
+                continue;
+            }
+
+            var next = Math.Max(current, stationItems ? state.HideoutBuilt.GetValueOrDefault(type) : 0) + 1;
+            if (!area.Stages.TryGetValue(next.ToString(), out var stage) || stage.Requirements is null
+                || state.SuppliedUpgrades.Contains($"{type}:{next}"))
+            {
+                continue;
+            }
+
+            var items = stage.Requirements.Where(r => r.Type == "Item" && (r.Count ?? 0) > 0)
+                .Select(r => (r.TemplateId, r.Count!.Value)).ToList();
+            if (items.Count == 0)
+            {
+                continue;
+            }
+
+            var ready = stage.Requirements.Where(r => r.Type == "Area" && r.AreaType is not null)
+                .All(r => levels.GetValueOrDefault(r.AreaType!.Value) >= (r.RequiredLevel ?? 0));
+            var cost = items.Sum(i => handbookHelper.GetTemplatePrice(i.TemplateId) * i.Item2);
+            if (best is null || (ready && !best.Ready) || (ready == best.Ready && cost < best.Cost))
+            {
+                best = new SupplyPick(type, next, ready, cost, items);
+            }
+        }
+
+        if (best is null)
+        {
+            return [];
+        }
+
+        upgrade = $"{best.Area}:{best.Level}";
+        var result = new List<Item>();
+        var parts = new List<string>();
+        foreach (var (tpl, count) in best.Items)
+        {
+            var created = lootPools.CreateItem(tpl, count);
+            foreach (var item in created)
+            {
+                item.Upd ??= new Upd();
+                item.Upd.SpawnedInSession = true; // hideout upgrades take found-in-raid items
+            }
+
+            result.AddRange(created);
+            parts.Add($"{count}x {itemHelper.GetItemName(tpl)}");
+        }
+
+        description = $"the materials for {AreaName(best.Area)} level {best.Level} ({string.Join(", ", parts)})";
+        return result;
+    }
+
+    private sealed record SupplyPick(int Area, int Level, bool Ready, double Cost, List<(MongoId Tpl, int Count)> Items);
+
+    /// <summary>A hideout area's name as the game shows it (the data table's station names).</summary>
+    public string AreaName(int area)
+    {
+        var def = SessionManagerData()?.Items.FirstOrDefault(d => d.Kind == "station" && (int)d.Num("area") == area);
+        return def is not null && def.Name.StartsWith("Progressive ") ? def.Name["Progressive ".Length..] : ((HideoutAreas)area).ToString();
+    }
+
+    private static TarkovData? SessionManagerData() => Session.SessionManager.Instance?.Data;
+
     public bool Save(string profileId)
     {
         try

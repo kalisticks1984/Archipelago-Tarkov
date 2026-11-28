@@ -47,7 +47,24 @@ public sealed class ProfileState
     // Checks
     [JsonPropertyName("checked")] public HashSet<long> Checked { get; set; } = new();
     [JsonPropertyName("extractCounts")] public Dictionary<string, int> ExtractCounts { get; set; } = new();
+    /// <summary>Kills counted for the milestones, by target ("scav", "pmc"), since this profile joined the game.</summary>
+    [JsonPropertyName("killCounts")] public Dictionary<string, int> KillCounts { get; set; } = new();
+    /// <summary>Keys of the bosses killed at least once.</summary>
+    [JsonPropertyName("bossesKilled")] public HashSet<string> BossesKilled { get; set; } = new();
+    /// <summary>Victims already counted in the current raid. A raid with transits ends once per map, so the same
+    /// victim may be reported again; cleared when the raid really ends.</summary>
+    [JsonPropertyName("raidVictimsCounted")] public HashSet<string> RaidVictimsCounted { get; set; } = new();
+    /// <summary>Lootsanity: original item templates whose Archipelago Item was brought out of a raid.</summary>
+    [JsonPropertyName("lootFound")] public HashSet<string> LootFound { get; set; } = new();
+    /// <summary>Craftsanity: hideout recipes finished (and collected) at least once.</summary>
+    [JsonPropertyName("craftsDone")] public HashSet<string> CraftsDone { get; set; } = new();
     [JsonPropertyName("goalSent")] public bool GoalSent { get; set; }
+    /// <summary>hideout_levels: items. Hideout area type -> the highest level built (its check sent), active or not.</summary>
+    [JsonPropertyName("hideoutBuilt")] public Dictionary<int, int> HideoutBuilt { get; set; } = new();
+    /// <summary>Hideout Supplies: the upgrades ("area:level") already sent materials for.</summary>
+    [JsonPropertyName("suppliedUpgrades")] public HashSet<string> SuppliedUpgrades { get; set; } = new();
+    /// <summary>PMC raids finished since the game was linked (kit grace raids).</summary>
+    [JsonPropertyName("pmcRaids")] public int PmcRaids { get; set; }
     [JsonPropertyName("collectorWarned")] public bool CollectorWarned { get; set; }
 
     // Random starting kit: "extra" or "replace" while it waits to be given, then StartingKitGiven.
@@ -143,6 +160,14 @@ public sealed class ProfileState
         Deferred.Clear();
         Checked.Clear();
         ExtractCounts.Clear();
+        KillCounts.Clear();
+        BossesKilled.Clear();
+        RaidVictimsCounted.Clear();
+        LootFound.Clear();
+        CraftsDone.Clear();
+        HideoutBuilt.Clear();
+        SuppliedUpgrades.Clear();
+        PmcRaids = 0;
         GoalSent = false;
         AutoConnect = false;
     }

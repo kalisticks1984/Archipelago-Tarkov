@@ -19,6 +19,8 @@ from websockets.sync.client import connect as ws_connect
 
 AP_DIR = os.environ.get("AP_DIR", "Archipelago")  # an Archipelago checkout with this world in worlds/ or custom_worlds/
 PYTHON = os.environ.get("AP_PYTHON", sys.executable)
+# Port for the test MultiServer. Change it when another Archipelago server already uses 38281 on this machine.
+AP_PORT = int(os.environ.get("AP_PORT", "38281"))
 
 
 def generate(players: Dict[str, Dict[str, Any]], workdir: str, seed: Optional[int] = None) -> str:
@@ -69,7 +71,7 @@ def patch_multidata(src: str, dst: str, slot_data_changes: Dict[str, Any]) -> st
 
 
 class MultiServer:
-    def __init__(self, multidata: str, port: int = 38281, logfile: str = os.path.join(tempfile.gettempdir(), "multiserver.log")) -> None:
+    def __init__(self, multidata: str, port: int = AP_PORT, logfile: str = os.path.join(tempfile.gettempdir(), "multiserver.log")) -> None:
         self.multidata = multidata
         self.port = port
         self.logfile = logfile
@@ -77,7 +79,10 @@ class MultiServer:
 
     @staticmethod
     def kill_stale(port: int) -> None:
-        """Kill MultiServer processes left over from an earlier run (matched on argv, never on our own pid)."""
+        """Kill MultiServer processes left over from an earlier run (matched on argv, never on our own pid).
+        Linux only (reads /proc); elsewhere start() just waits for the port to be free."""
+        if not os.path.isdir("/proc"):
+            return
         me = os.getpid()
         for pid in os.listdir("/proc"):
             if not pid.isdigit() or int(pid) == me:
@@ -143,7 +148,7 @@ class MultiServer:
 class Watcher:
     """Connects to a slot like a tracker would and records everything the server sends."""
 
-    def __init__(self, slot: str, port: int = 38281, tags: Optional[List[str]] = None) -> None:
+    def __init__(self, slot: str, port: int = AP_PORT, tags: Optional[List[str]] = None) -> None:
         self.slot = slot
         self.port = port
         self.tags = tags or ["Tracker"]

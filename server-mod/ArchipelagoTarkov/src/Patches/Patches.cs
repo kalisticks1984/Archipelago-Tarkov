@@ -1,4 +1,6 @@
 using System.Reflection;
+using ArchipelagoTarkov.Data;
+using ArchipelagoTarkov.Game;
 using ArchipelagoTarkov.Session;
 using HarmonyLib;
 using SPTarkov.Reflection.Patching;
@@ -7,7 +9,11 @@ using SPTarkov.Server.Core.Controllers;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
+using SPTarkov.Server.Core.Models.Eft.Hideout;
+using SPTarkov.Server.Core.Models.Eft.ItemEvent;
 using SPTarkov.Server.Core.Models.Eft.Match;
+using SPTarkov.Server.Core.Helpers.Quest;
+using SPTarkov.Server.Core.Models.Enums;
 using SPTarkov.Server.Core.Routers;
 using LocationPath = SPTarkov.Server.Core.Models.Eft.Common.Tables.Path;
 
@@ -31,6 +37,9 @@ public static class PatchInstaller
     [
         typeof(LocationController), typeof(TraderHelper), typeof(LocationLifecycleService),
         typeof(ProfileCallbacks), typeof(EventOutputHolder), typeof(ProfileController), typeof(GameCallbacks),
+        typeof(BotController), typeof(TraderAssortHelper), typeof(HideoutController), typeof(QuestHelper),
+        typeof(AssortHelper), typeof(InsuranceController), typeof(SPTarkov.Server.Core.Services.Commerce.InsuranceService),
+        typeof(HealthController), typeof(SPTarkov.Server.Core.Helpers.InRaid.InRaidHelper),
     ];
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Ready = new();
@@ -69,12 +78,26 @@ public static class PatchInstaller
         [
             new LocationListPatch(),
             new TraderUnlockPatch(),
+            new TraderListPatch(),
+            new TraderGetPatch(),
             new RaidStartPatch(),
             new RaidEndPatch(),
             new ProfileListPatch(),
             new ItemEventSyncPatch(),
             new ScavRegeneratePatch(),
             new GameStartPatch(),
+            new BotGeneratePatch(),
+            new TraderAssortPatch(),
+            new TakeProductionPatch(),
+            new ClientQuestsPatch(),
+            new TraderLevelPatch(),
+            new QuestAssortPatch(),
+            new InsurePatch(),
+            new InsurancePricePatch(),
+            new HealPatch(),
+            new KeepGearPatch(),
+            new UpgradeCompletePatch(),
+            new UpgradeStartPatch(),
         ];
 
         foreach (var patch in patches)
@@ -180,6 +203,101 @@ public class TraderUnlockPatch : AbstractPatch
     }
 }
 
+/// <summary>
+/// Trader settings for a linked profile: the client treats a trader as unlocked when its profile flag OR the trader's
+/// "unlocked by default" setting is true. Vanilla sets that for six of the seven main traders, and mods such as SVM can
+/// set it for Jaeger, so for a linked profile it is reported as false and the profile flag (which the mod keeps in
+/// line with the received items) decides. The shared trader data is never changed.
+/// </summary>
+public class TraderListPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderHelper), nameof(TraderHelper.GetAllTraders));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, ref List<TraderBase> __result)
+    {
+        if (__result is null)
+        {
+            return;
+        }
+
+        // The Archipelago trader only exists for linked profiles: with contracts it is the only trader; in vanilla quest
+        // mode it sells nothing but insures and heals (the YAML's insurance and healing options).
+        var (applies, contracts) = TraderLocks.For(__0.ToString());
+        if (!applies)
+        {
+            var archipelago = new MongoId(Contracts.TraderId);
+            __result = __result.Where(t => t.Id != archipelago).ToList();
+        }
+
+        if (!applies)
+        {
+            return;
+        }
+
+        __result = __result.Select(t => TraderLocks.Locked(t, contracts)).ToList();
+    }
+}
+
+/// <summary>Same as <see cref="TraderListPatch"/> for a single trader.</summary>
+public class TraderGetPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderHelper), nameof(TraderHelper.GetTrader));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId? __1, ref TraderBase __result)
+    {
+        if (__result is null || __1 is not { } session)
+        {
+            return;
+        }
+
+        var (applies, contracts) = TraderLocks.For(session.ToString());
+        if (applies)
+        {
+            __result = TraderLocks.Locked(__result, contracts);
+        }
+    }
+}
+
+internal static class TraderLocks
+{
+    /// <summary>Whether the profile is linked, and whether it plays Archipelago contracts.</summary>
+    public static (bool Applies, bool Contracts) For(string sessionId)
+    {
+        var manager = SessionManager.Instance;
+        var session = manager?.Get(sessionId);
+        if (session is null)
+        {
+            return (false, false);
+        }
+
+        lock (session)
+        {
+            return (session.Active, session.Active && session.ContractsMode);
+        }
+    }
+
+    /// <summary>
+    /// Main traders (or, with contracts, every trader but the Archipelago one) are never "unlocked by default", so
+    /// the profile flag decides.
+    /// </summary>
+    public static TraderBase Locked(TraderBase trader, bool contracts)
+    {
+        var data = SessionManager.Instance?.Data;
+        if (trader.UnlockedByDefault != true || data is null)
+        {
+            return trader;
+        }
+
+        var id = trader.Id.ToString();
+        var locks = contracts ? id != Contracts.TraderId : data.TradersById.ContainsKey(id);
+        return locks ? trader with { UnlockedByDefault = false } : trader;
+    }
+}
+
 /// <summary>client/match/local/start: remember the raid and switch off transits to locked maps.</summary>
 public class RaidStartPatch : AbstractPatch
 {
@@ -213,9 +331,15 @@ public class RaidStartPatch : AbstractPatch
             }
 
             var mapKey = manager.MapKeyFor(request?.Location);
+            List<SpawnpointTemplate>? swappedLoot = null;
             lock (session)
             {
                 session.OnRaidStart(mapKey);
+                if (result?.LocationLoot?.Loot is { } loot && session.LootsanityOn(mapKey))
+                {
+                    swappedLoot = LootStandIns.SwapLoot(loot, session.LootTarget, session.LootPlacedThisRaid, session.LootRandom,
+                        session.RecordLootPlacement, manager.ItemName);
+                }
             }
 
             var locked = manager.LockedMaps(sessionId.ToString());
@@ -227,6 +351,11 @@ public class RaidStartPatch : AbstractPatch
                     Transits = LocationListPatch.DisableTransits(result.LocationLoot.Transits, manager, locked),
                 };
             }
+
+            if (swappedLoot is not null && result?.LocationLoot is not null)
+            {
+                result.LocationLoot = result.LocationLoot with { Loot = swappedLoot };
+            }
         }
         catch (Exception ex)
         {
@@ -234,6 +363,238 @@ public class RaidStartPatch : AbstractPatch
         }
 
         return result;
+    }
+}
+
+/// <summary>client/game/bot/generate: lootsanity swaps the first carried item of each still-unchecked type.</summary>
+public class BotGeneratePatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(BotController), nameof(BotController.Generate));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, ref Task<IEnumerable<BotBase>> __result)
+    {
+        if (SessionManager.Instance?.Get(__0.ToString()) is null || __result is null)
+        {
+            return;
+        }
+
+        __result = After(__result, __0);
+    }
+
+    /// <summary>"a Scav", "a PMC", a boss's name, ...: who carries an Archipelago Item, for the tracker.</summary>
+    private static string Carrier(BotBase bot)
+    {
+        var role = bot.Info?.Settings?.Role ?? "";
+        if (SessionManager.Instance?.Data.BossesByRole.TryGetValue(role, out var boss) == true)
+        {
+            return boss.Name.Replace("Boss - ", "");
+        }
+
+        return role.ToLowerInvariant() switch
+        {
+            "assault" or "marksman" or "cursedassault" => "a Scav",
+            var r when r.StartsWith("pmc") || r is "bear" or "usec" => "a PMC",
+            "pmcbot" => "a Raider",
+            "exusec" => "a Rogue",
+            var r when r.StartsWith("follower") => "a boss guard",
+            var r when r.StartsWith("sectant") => "a Cultist",
+            _ => "a bot",
+        };
+    }
+
+    private static async Task<IEnumerable<BotBase>> After(Task<IEnumerable<BotBase>> original, MongoId sessionId)
+    {
+        var bots = await original.ConfigureAwait(false);
+        try
+        {
+            var session = SessionManager.Instance?.Get(sessionId.ToString());
+            if (session is null || bots is null)
+            {
+                return bots!;
+            }
+
+            var list = bots as IList<BotBase> ?? bots.ToList();
+            lock (session)
+            {
+                if (session.InRaid && session.LootsanityOn(session.RaidMap))
+                {
+                    foreach (var bot in list)
+                    {
+                        LootStandIns.SwapBotLoot(bot, session.LootTarget, session.LootPlacedThisRaid,
+                            session.RecordLootPlacement, Carrier(bot));
+                    }
+                }
+            }
+
+            return list;
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"bot generation: {ex}");
+            return bots!;
+        }
+    }
+}
+
+/// <summary>Trader assort requests (and purchases, which read the same assort): randomize the shop when the slot asks.</summary>
+public class TraderAssortPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderAssortHelper), nameof(TraderAssortHelper.GetAssort));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, MongoId __1, ref TraderAssort __result)
+    {
+        try
+        {
+            var manager = SessionManager.Instance;
+            var session = manager?.Get(__0.ToString());
+            if (manager is null || session is null || __result is null)
+            {
+                return;
+            }
+
+            if (__1.ToString() == Contracts.TraderId)
+            {
+                MerchantRequest? request = null;
+                lock (session)
+                {
+                    if (Contracts.Instance?.For(__0.ToString()) is { } set && manager.Game.Pmc(__0.ToString()) is { } pmc)
+                    {
+                        request = new MerchantRequest(pmc, session.UnlockedTraders.ToHashSet(), set, session.ShopMode,
+                            session.ShopEveryRestock, session.ShopSeed, session.ShopStock, !session.BartersRemoved);
+                    }
+                }
+
+                // Vanilla quest mode: the Archipelago trader only insures and heals.
+                __result = request != null
+                    ? manager.Merchant.Build(request, __result, manager.Data, manager.Shops)
+                    : new TraderAssort { Items = [], BarterScheme = new(), LoyalLevelItems = new(), NextResupply = __result.NextResupply };
+                return;
+            }
+
+            string mode;
+            bool everyRestock, barters;
+            int seed, stock;
+            lock (session)
+            {
+                if (!session.IsGatedTrader(__1.ToString()))
+                {
+                    return;
+                }
+
+                mode = session.ShopMode;
+                barters = !session.BartersRemoved;
+                everyRestock = session.ShopEveryRestock;
+                seed = session.ShopSeed;
+                stock = session.ShopStock;
+            }
+
+            if (mode != "vanilla")
+            {
+                __result = manager.Shops.Randomize(__result, __1.ToString(), mode, everyRestock, seed, stock, manager.Data);
+            }
+
+            if (!barters)
+            {
+                // GetAssort's result may be SPT's own copy of the stock: edit a clone.
+                __result = MerchantStock.RemoveBarters(manager.CloneAssort(__result));
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"trader assort: {ex}");
+        }
+    }
+}
+
+/// <summary>Hideout "take production": craftsanity takes the first craft of each recipe's product away and sends the check.</summary>
+public class TakeProductionPatch : AbstractPatch
+{
+    public sealed record CraftState(ApSession Session, CraftDef Craft, HashSet<string> ItemsBefore);
+
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(HideoutController), nameof(HideoutController.TakeProduction));
+
+    [PatchPrefix]
+    public static void Prefix(PmcData __0, HideoutTakeProductionRequestData __1, MongoId __2, ref CraftState? __state)
+    {
+        try
+        {
+            var session = SessionManager.Instance?.Get(__2.ToString());
+            if (session is null || __0?.Inventory?.Items is null || __1 is null)
+            {
+                return;
+            }
+
+            lock (session)
+            {
+                if (session.CraftTarget(__1.RecipeId.ToString()) is { } craft)
+                {
+                    __state = new CraftState(session, craft, __0.Inventory.Items.Select(i => i.Id.ToString()).ToHashSet());
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"take production (before): {ex}");
+        }
+    }
+
+    [PatchPostfix]
+    public static void Postfix(PmcData __0, MongoId __2, ItemEventRouterResponse __result, CraftState? __state)
+    {
+        if (__state is null || __result is null || __0?.Inventory?.Items is not { } items)
+        {
+            return;
+        }
+
+        try
+        {
+            if (__result.Warnings is { Count: > 0 })
+            {
+                return; // the craft wasn't collected
+            }
+
+            // The product SPT just added (stacks or a preset with its parts); tools given back are left alone.
+            var removed = items.Where(i => !__state.ItemsBefore.Contains(i.Id.ToString())
+                                           && i.Template.ToString() == __state.Craft.Product)
+                .Select(i => i.Id.ToString()).ToHashSet();
+            if (removed.Count == 0)
+            {
+                return;
+            }
+
+            bool grew;
+            do
+            {
+                grew = false;
+                foreach (var item in items)
+                {
+                    if (item.ParentId != null && removed.Contains(item.ParentId) && removed.Add(item.Id.ToString()))
+                    {
+                        grew = true;
+                    }
+                }
+            } while (grew);
+
+            items.RemoveAll(i => removed.Contains(i.Id.ToString()));
+            if (__result.ProfileChanges?.TryGetValue(__2, out var change) == true && change?.Items?.NewItems is { } newItems)
+            {
+                newItems.RemoveAll(i => removed.Contains(i.Id.ToString()));
+            }
+
+            lock (__state.Session)
+            {
+                __state.Session.RecordCraft(__state.Craft);
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionManager.Instance?.LogError($"take production: {ex}");
+        }
     }
 }
 
@@ -268,10 +629,20 @@ public class RaidEndPatch : AbstractPatch
                 return;
             }
 
-            var (_, isPmc) = ParseServerId(manager, __1.ServerId);
+            var (mapKey, isPmc) = ParseServerId(manager, __1.ServerId);
             lock (session)
             {
                 session.BeforeRaidEnd(__1.Results.Profile, isPmc);
+                // Kit grace raids: a death keeps the gear, so insurance has nothing to send back.
+                if (session.UseKitGrace(isPmc, __1.Results))
+                {
+                    __1.LostInsuredItems = null;
+                }
+
+                // Read the victims as the client sent them, before SPT merges the profile.
+                session.RecordVictims(mapKey, __1.Results.Profile.Stats?.Eft?.Victims);
+                // Take the Archipelago Items out before SPT copies the profile into the stash.
+                session.CollectLoot(mapKey, __1.Results.Profile, __1.Results.Result);
             }
         }
         catch (Exception ex)
@@ -494,6 +865,104 @@ internal static class SessionLock
         finally
         {
             Monitor.Exit(session);
+        }
+    }
+}
+
+/// <summary>
+/// Archipelago contracts: a profile playing contracts sees only its own contracts, never Tarkov's quests; every
+/// other profile never sees anybody's contracts.
+/// </summary>
+public class ClientQuestsPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(QuestHelper), nameof(QuestHelper.GetClientQuests));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, ref List<Quest> __result)
+    {
+        var contracts = Contracts.Instance;
+        if (contracts is null || __result is null)
+        {
+            return;
+        }
+
+        var mine = contracts.For(__0.ToString());
+        __result = mine != null
+            ? __result.Where(q => mine.Indexes.ContainsKey(q.Id)).ToList()
+            : __result.Where(q => !contracts.IsContract(q.Id)).ToList();
+    }
+}
+
+/// <summary>
+/// Archipelago contracts: Tarkov's quests never get done, so offers they unlock would stay locked forever. Instead an
+/// offer unlocks once the share of contracts done reaches how far into the road to Kappa its quest is (loyalty levels
+/// still apply as usual).
+/// </summary>
+public class QuestAssortPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(AssortHelper), nameof(AssortHelper.StripLockedQuestAssort));
+
+    [PatchPrefix]
+    public static void Prefix(PmcData __0, ref Dictionary<string, Dictionary<MongoId, MongoId>> __3)
+    {
+        try
+        {
+            var contracts = Contracts.Instance;
+            var data = SessionManager.Instance?.Data;
+            if (contracts is null || data is null || __0?.Id is not { } pmcId || __3 is null
+                || contracts.For(pmcId.ToString()) is not { Count: > 0 } set)
+            {
+                return;
+            }
+
+            var done = __0.Quests?.Count(q => q.Status == QuestStatusEnum.Success && set.Indexes.TryGetValue(q.QId, out var i) && i != 0) ?? 0;
+            var share = done / (double)set.Count;
+            var filtered = new Dictionary<string, Dictionary<MongoId, MongoId>>();
+            foreach (var (status, offers) in __3)
+            {
+                filtered[status] = offers
+                    .Where(kv => !(data.QuestProgress.TryGetValue(kv.Value.ToString(), out var needed) && share >= needed))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
+            }
+
+            __3 = filtered;
+        }
+        catch
+        {
+            // Keep the vanilla filter.
+        }
+    }
+}
+
+/// <summary>
+/// Archipelago contracts: nothing can be sold to the main traders, so their loyalty level comes from player level and
+/// standing alone (the hideout and the Archipelago trader's stock both use it).
+/// </summary>
+public class TraderLevelPatch : AbstractPatch
+{
+    protected override MethodBase? GetTargetMethod() =>
+        PatchInstaller.Target(typeof(TraderHelper), nameof(TraderHelper.LevelUp));
+
+    [PatchPostfix]
+    public static void Postfix(MongoId __0, PmcData __1)
+    {
+        try
+        {
+            var data = SessionManager.Instance?.Data;
+            if (data is null || __1?.Id is not { } pmcId || __1.TradersInfo is null
+                || !data.TradersById.ContainsKey(__0.ToString()) || Contracts.Instance?.For(pmcId.ToString()) is null
+                || !__1.TradersInfo.TryGetValue(__0, out var info) || SessionManager.Instance!.TraderBase(__0) is not { } trader)
+            {
+                return;
+            }
+
+            info.LoyaltyLevel = MerchantStock.EffectiveLevel(trader, __1);
+        }
+        catch
+        {
+            // Keep SPT's level.
         }
     }
 }

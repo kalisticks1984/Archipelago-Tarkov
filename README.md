@@ -15,9 +15,36 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
 - **Locked progression:** the ten maps (Ground Zero to The Lab), the seven main traders (Prapor, Therapist, Skier,
   Peacekeeper, Mechanic, Ragman, Jaeger) and the Flea Market are items. Locked maps disappear from the map screen and
   transits to them are switched off.
-- **432 checks** with the default options: every main-trader quest that can be completed reliably on a fresh
-  profile (364), every hideout area level (58), and one PMC extraction per map (up to five per map: 472 checks).
-- **Goals:** a number of quests, Fence's *Collector* (Kappa), or extracting from every map.
+- **Archipelago contracts (default):** Tarkov's quests are replaced by a line of contracts from the Archipelago
+  trader, written for your seed and ordered so your items make each one possible. Kill, boss, survive and hand-in
+  jobs that pay XP, roubles and trader standing. The line ends with the Kappa contract, which rewards the Kappa
+  container and is the goal. 125 contracts by default (vanilla Kappa takes 254 quests), 40 to 200 if you like.
+- **One trader:** with contracts, every other trader is locked. The Archipelago trader sells the stock of each main
+  trader you've received, at the loyalty your level and standing give, plus a catalog rolled every 15 minutes
+  from every weapon, armor, med, ammo and key in the game, in four tiers that open as you do contracts. Every restock
+  has at least 3 weapons, armor, meds for bleeds and fractures, a painkiller, random keys, and magazines and ammo
+  for the guns it sells or you own.
+- **215 checks** with the default options: 125 contracts and the Kappa contract (126), every hideout area level (58),
+  one PMC extraction per map (10), Scav and PMC kill totals (8) and the first kill of each boss (13).
+- **Vanilla quests instead (`quest_mode: vanilla`):** every main-trader quest that can be completed reliably on a
+  fresh profile is a check (364; 453 checks in all with the other defaults).
+- **Lootsanity (optional):** pick item categories, and every item type in them is a check (up to ~3,200). The first
+  spawn of an unchecked type in each raid is an *Archipelago Item*; extract with it to send the check. You never get
+  the original item. The client plugin draws these with the Archipelago symbol.
+- **Craftsanity (optional):** the first craft of each hideout recipe (~180) is a check and gives no item.
+- **Hideout levels as items (default):** building a level sends its check; the level starts working when its
+  station's *Progressive* item (Progressive Workbench...) arrives. *Hideout Supplies* send the materials for an
+  upgrade.
+- **Insurance and healing:** the Archipelago trader insures and heals in both quest modes; YAML options switch either
+  off and scale the insurance price. Barters (trades paid with items) are removed unless `trader_barters` is on.
+- **Kit grace raids:** with `starting_kit: replace`, dying in your first 5 PMC raids keeps your gear.
+- **Randomized shops (optional):** the main traders sell random items of about the same value, from the same category
+  or anything, with a share of offers in stock, random purchase limits by value tier and loyalty level, fixed for the
+  seed or rerolled at every restock. Not checks.
+- **Tracker (client plugin):** F8 or the Tasks screen shows the checks left on each map, and where this raid's
+  Archipelago Items are.
+- **Goals:** the Kappa contract; or, with vanilla quests, a number of quests, Fence's *Collector* (Kappa),
+  extracting from every map, or killing every boss.
 - **Items:** maps, traders, Flea Market access, experience, trader reputation, money, and crates of weapons, armor,
   medicine, ammo, keys, stims, barter goods and provisions. Traps: Fence Grudge, Exhaustion, Scav Cooldown.
 - **Random starting kit (optional):** a weapon with matching ammo and magazines, armor, rig, backpack, meds, food and
@@ -34,7 +61,7 @@ SPT only. It has nothing to do with the official PvE or PvP modes and must never
 
 ## Status
 
-Early release (v2.0.0). Everything is tested against a real SPT 4.1.6 server and a real Archipelago server, with a
+Early release (v2.2.0). Everything is tested against a real SPT 4.1.6 server and a real Archipelago server, with a
 script that makes the same requests as the game client, but it hasn't had a full in-game playthrough yet. Please
 [open an issue](https://github.com/Pegzzzz/Archipelago-Tarkov/issues) with your newest `SPT_Runtime\user\logs\spt` file if
 something goes wrong.

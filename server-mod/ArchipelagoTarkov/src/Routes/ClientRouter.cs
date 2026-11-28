@@ -10,6 +10,7 @@ namespace ArchipelagoTarkov.Routes;
 /// Endpoints used by the optional BepInEx client plugin.
 /// GET /archipelago/client/poll         -> {"messages":[...], "kill":bool, "cause":string}
 /// GET /archipelago/client/killed       -> acknowledges that a DeathLink kill was carried out
+/// GET /archipelago/client/tracker      -> the checks still to do, by map (see TrackerResponse)
 /// </summary>
 [Injectable]
 public class ClientRouter(JsonUtil jsonUtil, HttpResponseUtil httpResponseUtil)
@@ -19,6 +20,27 @@ public class ClientRouter(JsonUtil jsonUtil, HttpResponseUtil httpResponseUtil)
             new RouteAction<EmptyRequestData>(
                 "/archipelago/client/poll",
                 (url, info, sessionId, output, cancellationToken) => new ValueTask<string>(httpResponseUtil.NoBody(Poll(sessionId.ToString())))
+            ),
+            new RouteAction<EmptyRequestData>(
+                "/archipelago/client/tracker",
+                (url, info, sessionId, output, cancellationToken) =>
+                {
+                    var session = SessionManager.Instance?.Get(sessionId.ToString());
+                    TrackerResponse tracker;
+                    if (session is null)
+                    {
+                        tracker = new TrackerResponse();
+                    }
+                    else
+                    {
+                        lock (session)
+                        {
+                            tracker = session.BuildTracker();
+                        }
+                    }
+
+                    return new ValueTask<string>(httpResponseUtil.NoBody(tracker));
+                }
             ),
             new RouteAction<EmptyRequestData>(
                 "/archipelago/client/killed",

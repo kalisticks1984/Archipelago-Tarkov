@@ -16,7 +16,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ArchipelagoTarkov</AssemblyName>
     <RootNamespace>ArchipelagoTarkov</RootNamespace>
-    <Version>2.0.0</Version>
+    <Version>2.2.0</Version>
     <OutputType>Library</OutputType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -57,5 +57,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\..\apworld\tarkov\data\tarkov_data.json" LogicalName="ArchipelagoTarkov.tarkov_data.json" />
+    <!-- The Archipelago trader's avatar (same symbol the client plugin uses for Archipelago Items). -->
+    <EmbeddedResource Include="..\..\client-plugin\ArchipelagoTarkov.Client\Resources\archipelago.png" LogicalName="ArchipelagoTarkov.archipelago.png" />
   </ItemGroup>
 </Project>
