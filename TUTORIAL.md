@@ -3,7 +3,7 @@
 This guide takes you from a working SPT install to playing Tarkov in an Archipelago multiworld.
 Setting up the mod takes about 10 minutes.
 
-> **Status: early release (v2.1.0, for SPT 4.1.6).** Everything is tested against a real SPT 4.1.6 server and a real Archipelago
+> **Status: early release (v2.2.0, for SPT 4.1.6).** Everything is tested against a real SPT 4.1.6 server and a real Archipelago
 > server, with a script standing in for the game client. It hasn't had a full in-game playthrough yet, so expect rough
 > edges. Please report problems (see [Reporting problems](#reporting-problems)).
 
@@ -417,7 +417,7 @@ Your Archipelago progress lives in `SPT_Runtime\user\mods\ArchipelagoTarkov\prof
 
 **The SPT console doesn't show "Archipelago for Tarkov loaded"**
 Check that `ArchipelagoTarkov.dll` is at `SPT_Runtime\user\mods\ArchipelagoTarkov\ArchipelagoTarkov.dll`. The console
-lists every mod it loads (`Mod: Archipelago for Tarkov version: 2.1.0 ... loaded`); on SPT older than 4.1.6, or 4.2
+lists every mod it loads (`Mod: Archipelago for Tarkov version: 2.2.0 ... loaded`); on SPT older than 4.1.6, or 4.2
 and newer, it shows an error about the mod's SPT version instead (for SPT 4.0.13, use release 1.1.1). Look for red
 lines mentioning Archipelago.
 

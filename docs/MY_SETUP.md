@@ -12,7 +12,7 @@ The SPT install, mods and settings this branch was played and tested with. The c
 
 | Mod | Version |
 |---|---|
-| ArchipelagoTarkov (this repo) | 2.1.0 |
+| ArchipelagoTarkov (this repo) | 2.2.0 |
 | [SVM] Server Value Modifier | 2.2.3 |
 | SAIN server mod | 4.5.1 |
 | Lots of Loot Redux (archangelwtf) | 4.2.2 |
